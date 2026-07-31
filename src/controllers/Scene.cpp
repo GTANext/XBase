@@ -9,17 +9,77 @@
 #include "FxManager_c.h"
 #include "FxSystem_c.h"
 #include "extensions/ScriptCommands.h"
+#include <string>
+#include <cstring>
+#include <string>
+#include <string>
 #include <vector>
 
 namespace {
 
 std::vector<FxSystem_c*> s_particleSystems;
+std::string s_activeAnimationGroup;
+std::string s_pendingAnimationGroup;
+DWORD s_pendingAnimationRemoveAt = 0;
+
+void KeepAnimationGroupLoaded(const char* group) {
+    if (!group || group[0] == '\0' || std::strcmp(group, "PED") == 0) {
+        return;
+    }
+    if (!s_activeAnimationGroup.empty() && s_activeAnimationGroup != group) {
+        plugin::Command<plugin::Commands::REMOVE_ANIMATION>(s_activeAnimationGroup.c_str());
+    }
+    plugin::Command<plugin::Commands::REQUEST_ANIMATION>(group);
+    plugin::Command<plugin::Commands::LOAD_ALL_MODELS_NOW>();
+    s_activeAnimationGroup = group;
+    s_pendingAnimationGroup.clear();
+    s_pendingAnimationRemoveAt = 0;
+}
+
+void ScheduleAnimationGroupUnload(const char* group, DWORD delayMs) {
+    if (!group || group[0] == '\0' || std::strcmp(group, "PED") == 0) {
+        return;
+    }
+    if (s_activeAnimationGroup == group) {
+        s_pendingAnimationGroup = group;
+        s_pendingAnimationRemoveAt = GetTickCount() + delayMs;
+    }
+}
+
+void ProcessAnimationGroupUnload() {
+    if (s_pendingAnimationGroup.empty() || s_pendingAnimationRemoveAt == 0 ||
+        GetTickCount() < s_pendingAnimationRemoveAt) {
+        return;
+    }
+    if (s_activeAnimationGroup == s_pendingAnimationGroup) {
+        plugin::Command<plugin::Commands::REMOVE_ANIMATION>(s_pendingAnimationGroup.c_str());
+        s_activeAnimationGroup.clear();
+    }
+    s_pendingAnimationGroup.clear();
+    s_pendingAnimationRemoveAt = 0;
+}
 
 } // namespace
 
 namespace XBase::Scene {
 
+void Shutdown() {
+    for (FxSystem_c* sys : s_particleSystems) {
+        if (sys) {
+            g_fxMan.DestroyFxSystem(sys);
+        }
+    }
+    s_particleSystems.clear();
+    if (!s_activeAnimationGroup.empty()) {
+        plugin::Command<plugin::Commands::REMOVE_ANIMATION>(s_activeAnimationGroup.c_str());
+    }
+    s_activeAnimationGroup.clear();
+    s_pendingAnimationGroup.clear();
+    s_pendingAnimationRemoveAt = 0;
+}
+
 void Process() {
+    ProcessAnimationGroupUnload();
     for (size_t i = 0; i < s_particleSystems.size(); ) {
         FxSystem_c* sys = s_particleSystems[i];
         if (!sys || sys->m_nPlayStatus == 3) {
@@ -33,11 +93,15 @@ void Process() {
 bool PlayAnimation(const char* group, const char* name, bool loop) {
     CPlayerPed* player = FindPlayerPed();
     if (!player || !group || !name) return false;
+    if (std::strcmp(group, "PED") != 0) {
+        KeepAnimationGroupLoaded(group);
+    }
     const int hplayer = CPools::GetPedRef(player);
-    plugin::Command<plugin::Commands::REQUEST_ANIMATION>(group);
-    plugin::Command<plugin::Commands::LOAD_ALL_MODELS_NOW>();
     const int flags = loop ? 1 : 0;
     plugin::Command<plugin::Commands::TASK_PLAY_ANIM>(hplayer, name, group, 8.0f, flags, 0, 0, 0, 0);
+    if (std::strcmp(group, "PED") != 0) {
+        ScheduleAnimationGroupUnload(group, loop ? 60000 : 8000);
+    }
     return true;
 }
 

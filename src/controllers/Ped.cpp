@@ -63,6 +63,27 @@ void Process() {
     *CheatAddr(93) = s_gangWarsActive;
 }
 
+void NotifyGameInit() {
+    s_lastSpawned = nullptr;
+}
+
+void Shutdown() {
+    s_noFireEnabled = false;
+    s_elvisEverywhere = false;
+    s_everyoneArmed = false;
+    s_pedsMayhem = false;
+    s_pedsAtkRocket = false;
+    s_slutMagnet = false;
+    s_bigHead = false;
+    s_thinBody = false;
+    s_nastyLimbs = false;
+    s_noProstitutes = false;
+    s_gangsControl = false;
+    s_gangsEverywhere = false;
+    s_gangWarsActive = false;
+    s_lastSpawned = nullptr;
+}
+
 void SetNoFire(bool enable) {
     s_noFireEnabled = enable;
 }

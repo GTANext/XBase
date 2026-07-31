@@ -63,7 +63,10 @@ local function add_portable_player_target(name, sdkName, gameName, gameDefine, b
         files {
             "include/XBase/**.h",
             "src/backends/PlayerBackend.h",
-            "src/backends/PlayerBackend_" .. string.lower(sdkName) .. ".cpp",
+            "src/backends/PedBackend.h",
+            "src/backends/PedBackend_" .. string.lower(sdkName) .. ".cpp",
+            "src/backends/VehicleBackend.h",
+            "src/backends/VehicleBackend_" .. string.lower(sdkName) .. ".cpp",
             "src/controllers/Capabilities.cpp",
             "src/controllers/Config.cpp",
             "src/controllers/CoreStub.cpp",
@@ -71,7 +74,9 @@ local function add_portable_player_target(name, sdkName, gameName, gameDefine, b
             "src/controllers/Json.cpp",
             "src/controllers/Log.cpp",
             "src/controllers/PlayerPortable.cpp",
-            "src/controllers/PortableStubs.cpp"
+            "src/controllers/PedPortable.cpp",
+            "src/controllers/PortableStubs.cpp",
+            "src/controllers/VehiclePortable.cpp"
         }
         includedirs {
             "include",
@@ -116,9 +121,13 @@ project "XBaseSA"
         "src/main.cpp",
         "src/controllers/CoreStub.cpp",
         "src/controllers/PlayerPortable.cpp",
+        "src/controllers/PedPortable.cpp",
         "src/controllers/PortableStubs.cpp",
+        "src/controllers/VehiclePortable.cpp",
         "src/backends/PlayerBackend_vc.cpp",
-        "src/backends/PlayerBackend_iii.cpp"
+        "src/backends/PlayerBackend_iii.cpp",
+        "src/backends/VehicleBackend_vc.cpp",
+        "src/backends/VehicleBackend_iii.cpp"
     }
     add_sa_settings()
 

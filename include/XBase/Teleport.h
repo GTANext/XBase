@@ -4,6 +4,7 @@
 
 namespace XBase::Teleport {
 
+CVector GetCurrentPosition();
 void To(float x, float y, float z, int interior = 0);
 void Forward(float distance);
 void MapPosition(float x, float y, bool spawnUnderwater = false);

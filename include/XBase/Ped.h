@@ -7,6 +7,8 @@ class CPed;
 namespace XBase::Ped {
 
 void Process();
+void NotifyGameInit();
+void Shutdown();
 void SetNoFire(bool enable);
 bool GetNoFire();
 void SetSpawnLimits(bool limitPolice, bool limitGangs, int maxPolice, int maxGangs);

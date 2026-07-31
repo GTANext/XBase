@@ -1,5 +1,13 @@
 #include <XBase/Core.h>
 #include <XBase/Player.h>
+#include <XBase/Ped.h>
+#include <XBase/Vehicle.h>
+#include <XBase/World.h>
+#include <XBase/Weapon.h>
+#include <XBase/Teleport.h>
+#include <XBase/Scene.h>
+#include <XBase/Visual.h>
+#include <XBase/BulletAssist.h>
 
 namespace XBase::Core {
 
@@ -14,6 +22,12 @@ void Shutdown() {
     if (IsDomainEnabled(Domain::Player)) {
         Player::Shutdown();
     }
+    if (IsDomainEnabled(Domain::Ped)) {
+        Ped::Shutdown();
+    }
+    if (IsDomainEnabled(Domain::Scene)) {
+        Scene::Shutdown();
+    }
     s_enabledDomains = 0;
     s_gameInitialized = false;
 }
@@ -21,19 +35,46 @@ void Shutdown() {
 void Process() {
     if (!s_gameInitialized) return;
     if (IsDomainEnabled(Domain::Player)) Player::Process();
+    if (IsDomainEnabled(Domain::Ped)) Ped::Process();
+    if (IsDomainEnabled(Domain::Vehicle)) Vehicle::Process();
+    if (IsDomainEnabled(Domain::World)) World::Process();
+    if (IsDomainEnabled(Domain::Weapon)) Weapon::Process();
+    if (IsDomainEnabled(Domain::Teleport)) Teleport::Process();
+    if (IsDomainEnabled(Domain::Scene)) Scene::Process();
+    if (IsDomainEnabled(Domain::Visual)) Visual::Process();
+    if (IsDomainEnabled(Domain::BulletAssist)) BulletAssist::Process();
 }
 
 void SetEnabledDomains(DomainMask enabledDomains) {
-    constexpr DomainMask supportedDomains = DomainBit(Domain::Player);
+    constexpr DomainMask supportedDomains =
+        DomainBit(Domain::Player) |
+        DomainBit(Domain::Ped) |
+        DomainBit(Domain::Vehicle);
     const DomainMask effectiveDomains = enabledDomains & supportedDomains;
     const bool playerWasEnabled = IsDomainEnabled(Domain::Player);
     const bool playerWillBeEnabled = (effectiveDomains & DomainBit(Domain::Player)) != 0;
+    const bool vehicleWasEnabled = IsDomainEnabled(Domain::Vehicle);
+    const bool vehicleWillBeEnabled = (effectiveDomains & DomainBit(Domain::Vehicle)) != 0;
+    const bool pedWasEnabled = IsDomainEnabled(Domain::Ped);
+    const bool pedWillBeEnabled = (effectiveDomains & DomainBit(Domain::Ped)) != 0;
     if (playerWasEnabled && !playerWillBeEnabled) {
         Player::Shutdown();
+    }
+    if (vehicleWasEnabled && !vehicleWillBeEnabled) {
+        Vehicle::Shutdown();
+    }
+    if (pedWasEnabled && !pedWillBeEnabled) {
+        Ped::Shutdown();
     }
     s_enabledDomains = effectiveDomains;
     if (!playerWasEnabled && playerWillBeEnabled && s_gameInitialized) {
         Player::NotifyGameInit();
+    }
+    if (!vehicleWasEnabled && vehicleWillBeEnabled && s_gameInitialized) {
+        Vehicle::NotifyGameInit();
+    }
+    if (!pedWasEnabled && pedWillBeEnabled && s_gameInitialized) {
+        Ped::NotifyGameInit();
     }
 }
 
@@ -53,6 +94,12 @@ bool IsWorldReady() {
 void NotifyGameInit() {
     if (IsDomainEnabled(Domain::Player)) {
         Player::NotifyGameInit();
+    }
+    if (IsDomainEnabled(Domain::Ped)) {
+        Ped::NotifyGameInit();
+    }
+    if (IsDomainEnabled(Domain::Vehicle)) {
+        Vehicle::NotifyGameInit();
     }
     s_gameInitialized = true;
 }

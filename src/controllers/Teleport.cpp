@@ -13,7 +13,11 @@
 
 namespace XBase::Teleport {
 
-void To(float x, float y, float z, int interior) {
+CVector GetCurrentPosition() {
+    CPlayerPed* player = FindPlayerPed();
+    return player ? player->GetPosition() : CVector(0.0f, 0.0f, 10.0f);
+}
+
     CPlayerPed* player = FindPlayerPed();
     if (!player) return;
     CVector pos(x, y, z);

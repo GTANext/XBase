@@ -28,6 +28,12 @@ void Shutdown() {
     if (IsDomainEnabled(Domain::Player)) {
         Player::Shutdown();
     }
+    if (IsDomainEnabled(Domain::Ped)) {
+        Ped::Shutdown();
+    }
+    if (IsDomainEnabled(Domain::Scene)) {
+        Scene::Shutdown();
+    }
     s_enabledDomains = 0;
     s_gameInitialized = false;
 }
@@ -51,12 +57,28 @@ void SetEnabledDomains(DomainMask enabledDomains) {
     const DomainMask effectiveDomains = enabledDomains & AllDomains;
     const bool playerWasEnabled = IsDomainEnabled(Domain::Player);
     const bool playerWillBeEnabled = (effectiveDomains & DomainBit(Domain::Player)) != 0;
+    const bool vehicleWasEnabled = IsDomainEnabled(Domain::Vehicle);
+    const bool vehicleWillBeEnabled = (effectiveDomains & DomainBit(Domain::Vehicle)) != 0;
+    const bool pedWasEnabled = IsDomainEnabled(Domain::Ped);
+    const bool pedWillBeEnabled = (effectiveDomains & DomainBit(Domain::Ped)) != 0;
     if (playerWasEnabled && !playerWillBeEnabled) {
         Player::Shutdown();
+    }
+    if (vehicleWasEnabled && !vehicleWillBeEnabled) {
+        Vehicle::Shutdown();
+    }
+    if (pedWasEnabled && !pedWillBeEnabled) {
+        Ped::Shutdown();
     }
     s_enabledDomains = effectiveDomains;
     if (!playerWasEnabled && playerWillBeEnabled && s_gameInitialized) {
         Player::NotifyGameInit();
+    }
+    if (!vehicleWasEnabled && vehicleWillBeEnabled && s_gameInitialized) {
+        Vehicle::NotifyGameInit();
+    }
+    if (!pedWasEnabled && pedWillBeEnabled && s_gameInitialized) {
+        Ped::NotifyGameInit();
     }
 }
 
@@ -75,6 +97,12 @@ bool IsWorldReady() {
 void NotifyGameInit() {
     if (IsDomainEnabled(Domain::Player)) {
         Player::NotifyGameInit();
+    }
+    if (IsDomainEnabled(Domain::Ped)) {
+        Ped::NotifyGameInit();
+    }
+    if (IsDomainEnabled(Domain::Vehicle)) {
+        Vehicle::NotifyGameInit();
     }
     s_gameInitialized = true;
 }

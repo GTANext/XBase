@@ -3,6 +3,7 @@
 namespace XBase::Scene {
 
 void Process();
+void Shutdown();
 bool PlayAnimation(const char* group, const char* name, bool loop);
 void StopAnimation();
 bool PlayParticle(const char* name);

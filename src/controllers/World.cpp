@@ -17,6 +17,9 @@ bool s_weatherLocked = false;
 int s_lockedWeather = 0;
 
 bool s_freezeTime = false;
+bool s_lockedTime = false;
+int s_lockedHour = 0;
+int s_lockedMinute = 0;
 bool s_fasterClock = false;
 bool s_noWaterPhysics = false;
 
@@ -29,7 +32,9 @@ void Process() {
         CWeather::ForceWeatherNow(static_cast<short>(s_lockedWeather));
     }
 
-    if (s_freezeTime) {
+    if (s_freezeTime || s_lockedTime) {
+        CClock::ms_nGameClockHours = s_lockedHour;
+        CClock::ms_nGameClockMinutes = s_lockedMinute;
         *reinterpret_cast<unsigned int*>(0xB7CB64) = 0;
     } else if (s_fasterClock) {
         *reinterpret_cast<unsigned int*>(0xB7CB64) = 10;
@@ -41,6 +46,8 @@ void Process() {
         CWeather::UnderWaterness = 0.0f;
     }
 }
+
+int GetWeather() { return static_cast<int>(CWeather::OldWeatherType); }
 
 void SetWeather(int id, bool lock) {
     CWeather::ForceWeatherNow(static_cast<short>(id));
@@ -122,11 +129,23 @@ void SetWetRoads(float wet) { CWeather::WetRoads = wet; }
 
 void SetFreezeTime(bool enable) {
     s_freezeTime = enable;
+    if (enable) {
+        s_lockedHour = CClock::ms_nGameClockHours;
+        s_lockedMinute = CClock::ms_nGameClockMinutes;
+    }
     *reinterpret_cast<unsigned char*>(0xB70152) = enable ? 1 : 0;
 }
 
 bool IsTimeFrozen() {
-    return *reinterpret_cast<unsigned char*>(0xB70152) != 0;
+    return s_freezeTime;
+}
+
+void SetLockedTime(bool enable, int hour, int minute) {
+    s_lockedTime = enable;
+    if (enable) {
+        s_lockedHour = hour;
+        s_lockedMinute = minute;
+    }
 }
 
 void SetFasterClock(bool enable) {
@@ -194,6 +213,9 @@ void DestroyAllPeds() {
     }
 }
 
+int GetDaysPassed() { return CClock::ms_nGameClockDays; }
+void SetDaysPassed(int days) { CClock::ms_nGameClockDays = days; }
+
 int SpawnPickup(const Types::PickupOptions& options) {
     CPlayerPed* player = FindPlayerPed();
     if (!player) return -1;
@@ -218,6 +240,9 @@ int SpawnPickup(const Types::PickupOptions& options) {
     }
     return handle;
 }
+
+bool UpdateLastPickup(const Types::PickupOptions&) { return false; }
+bool RemoveLastPickup() { return false; }
 
 bool RemoveTrackedPickups() {
     CPickups::RemoveMissionPickUps();

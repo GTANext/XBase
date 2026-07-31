@@ -5,6 +5,7 @@
 namespace XBase::World {
 
 void Process();
+int GetWeather();
 void SetWeather(int id, bool lock);
 void ReleaseWeather();
 bool IsWeatherLocked();
@@ -38,6 +39,8 @@ void DestroyAllPeds();
 
 void SetFreezeTime(bool enable);
 bool IsTimeFrozen();
+void SetLockedTime(bool enable, int hour, int minute);
+
 void SetFasterClock(bool enable);
 bool IsFasterClock();
 void SetDisableReplay(bool enable);
@@ -51,7 +54,12 @@ bool IsFreePayNSpray();
 void SetNoWaterPhysics(bool enable);
 bool IsNoWaterPhysics();
 
+int GetDaysPassed();
+void SetDaysPassed(int days);
+
 int SpawnPickup(const Types::PickupOptions& options);
+bool UpdateLastPickup(const Types::PickupOptions& options);
+bool RemoveLastPickup();
 bool RemoveTrackedPickups();
 
 } // namespace XBase::World

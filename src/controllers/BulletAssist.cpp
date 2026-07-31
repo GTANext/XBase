@@ -1,5 +1,7 @@
 #include <XBase/BulletAssist.h>
 #include <XBase/Core.h>
+#include <XBase/Ped.h>
+#include <XBase/Types.h>
 #include "plugin.h"
 #include "CPlayerPed.h"
 #include "CPed.h"
@@ -63,6 +65,10 @@ void Draw() {
     CRGBA red(255, 50, 50, 180);
     CSprite2d::DrawRect(CRect(cx - 10.0f, cy - 1.0f, cx + 10.0f, cy + 1.0f), red);
     CSprite2d::DrawRect(CRect(cx - 1.0f, cy - 10.0f, cx + 1.0f, cy + 10.0f), red);
+}
+
+bool ShouldSuppressPedFire(CPed* ped) {
+    return ped != nullptr && XBase::Ped::GetNoFire();
 }
 
 } // namespace XBase::BulletAssist

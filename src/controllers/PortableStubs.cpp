@@ -17,113 +17,9 @@
 
 #include <utility>
 
-namespace XBase::Types {
-bool IsMissionPed(CPed*) { return false; }
-bool IsCopPed(const CPed*) { return false; }
-bool IsGangPed(const CPed*) { return false; }
-void ClearPedAiming(CPed*) {}
-}
-
-namespace XBase::Ped {
-void Process() {}
-void SetNoFire(bool) {}
-bool GetNoFire() { return false; }
-void SetSpawnLimits(bool, bool, int, int) {}
-CPed* GetLastSpawned() { return nullptr; }
-bool SpawnNearPlayer(unsigned int, const Types::PedSpawnOptions&) { return false; }
-bool SpawnAtMarker(unsigned int, const Types::PedSpawnOptions&) { return false; }
-void DeleteLastSpawned() {}
-void SetElvisEverywhere(bool) {}
-bool IsElvisEverywhere() { return false; }
-void SetEveryoneArmed(bool) {}
-bool IsEveryoneArmed() { return false; }
-void SetPedsMayhem(bool) {}
-bool IsPedsMayhem() { return false; }
-void SetPedsAtkRocket(bool) {}
-bool IsPedsAtkRocket() { return false; }
-void SetSlutMagnet(bool) {}
-bool IsSlutMagnet() { return false; }
-void SetBigHead(bool) {}
-bool IsBigHead() { return false; }
-void SetThinBody(bool) {}
-bool IsThinBody() { return false; }
-void SetNastyLimbs(bool) {}
-bool IsNastyLimbs() { return false; }
-void SetNoProstitutes(bool) {}
-bool IsNoProstitutes() { return false; }
-void SetGangsControl(bool) {}
-bool IsGangsControl() { return false; }
-void SetGangsEverywhere(bool) {}
-bool IsGangsEverywhere() { return false; }
-void SetGangWarsActive(bool) {}
-bool IsGangWarsActive() { return false; }
-void StartGangWar(bool) {}
-void EndGangWar() {}
-int GetGangZoneDensity(int) { return 0; }
-void SetGangZoneDensity(int, int) {}
-unsigned int GetGangMemberModel(unsigned int, unsigned int) { return 0; }
-void SetGangMemberModel(unsigned int, unsigned int, unsigned int) {}
-void ResetGangModels() {}
-void SetGangWeapons(unsigned int, int, int, int) {}
-}
-
-namespace XBase::Vehicle {
-CVehicle* GetCurrent() { return nullptr; }
-void Process() {}
-void Repair() {}
-void Start() {}
-void Stop() {}
-void SetEngine(bool) {}
-void Unflip() {}
-void SetHeavy(bool) {}
-void SetWatertight(bool) {}
-float GetHealth() { return 0.0f; }
-void SetHealth(float) {}
-bool GetLights() { return false; }
-void SetLights(bool) {}
-bool GetLocked() { return false; }
-void SetLocked(bool) {}
-Types::ProofState GetProofState() { return {}; }
-void SetProofState(const Types::ProofState&) {}
-bool GetVisible() { return false; }
-void SetVisible(bool) {}
-bool GetAlwaysSkidMarks() { return false; }
-void SetAlwaysSkidMarks(bool) {}
-bool GetDriverTargetable() { return false; }
-void SetDriverTargetable(bool) {}
-bool GetHeatSeekingTargetable() { return false; }
-void SetHeatSeekingTargetable(bool) {}
-bool GetPetrolTankWeakPoint() { return false; }
-void SetPetrolTankWeakPoint(bool) {}
-bool GetSirenOrAlarm() { return false; }
-void SetSirenOrAlarm(bool) {}
-bool GetTakeLessDamage() { return false; }
-void SetTakeLessDamage(bool) {}
-void AddUpgrade(unsigned int) {}
-void RemoveUpgrade(unsigned int) {}
-void RemoveAllUpgrades() {}
-int GetUpgrade(int) { return -1; }
-int GetPrimaryColor() { return -1; }
-int GetSecondaryColor() { return -1; }
-void SetPrimaryColor(int) {}
-void SetSecondaryColor(int) {}
-int GetPaintjob() { return -1; }
-bool SetPaintjob(int) { return false; }
-void OpenDoor(int) {}
-void PopDoor(int) {}
-void WarpToSeat(int) {}
-void SetTrafficDensity(float) {}
-bool GetDisableParticles() { return false; }
-void SetDisableParticles(bool) {}
-void ApplySpeedLock(float) {}
-void ApplyTargetSpeed(float) {}
-void RestoreTargetSpeed() {}
-void BlowUpAll() {}
-bool Spawn(unsigned int) { return false; }
-}
-
 namespace XBase::World {
 void Process() {}
+int GetWeather() { return 0; }
 void SetWeather(int, bool) {}
 void ReleaseWeather() {}
 bool IsWeatherLocked() { return false; }
@@ -154,6 +50,7 @@ void DestroyAllVehicles() {}
 void DestroyAllPeds() {}
 void SetFreezeTime(bool) {}
 bool IsTimeFrozen() { return false; }
+void SetLockedTime(bool, int, int) {}
 void SetFasterClock(bool) {}
 bool IsFasterClock() { return false; }
 void SetDisableReplay(bool) {}
@@ -166,7 +63,11 @@ void SetFreePayNSpray(bool) {}
 bool IsFreePayNSpray() { return false; }
 void SetNoWaterPhysics(bool) {}
 bool IsNoWaterPhysics() { return false; }
+int GetDaysPassed() { return 0; }
+void SetDaysPassed(int) {}
 int SpawnPickup(const Types::PickupOptions&) { return -1; }
+bool UpdateLastPickup(const Types::PickupOptions&) { return false; }
+bool RemoveLastPickup() { return false; }
 bool RemoveTrackedPickups() { return false; }
 }
 
@@ -186,6 +87,7 @@ void ResetStats() {}
 }
 
 namespace XBase::Teleport {
+CVector GetCurrentPosition() { return CVector(0.0f, 0.0f, 10.0f); }
 void To(float, float, float, int) {}
 void Forward(float) {}
 void MapPosition(float, float, bool) {}
@@ -196,6 +98,7 @@ void Process() {}
 
 namespace XBase::Scene {
 void Process() {}
+void Shutdown() {}
 bool PlayAnimation(const char*, const char*, bool) { return false; }
 void StopAnimation() {}
 bool PlayParticle(const char*) { return false; }
@@ -222,6 +125,7 @@ namespace XBase::BulletAssist {
 void Init() {}
 void Process() {}
 void Draw() {}
+bool ShouldSuppressPedFire(CPed* ped) { return ped != nullptr; }
 }
 
 namespace XBase::Overlay {
