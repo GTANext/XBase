@@ -12,6 +12,9 @@
 #include <XBase/Visual.h>
 #include <XBase/BulletAssist.h>
 #include <XBase/Overlay.h>
+#include <XBase/Camera.h>
+#include <XBase/Cheats.h>
+#include <XBase/VehicleEffects.h>
 
 #include <cstddef>
 #include <iterator>
@@ -41,6 +44,9 @@ inline const DomainLifecycle kDomains[] = {
     {Domain::Visual,       Noop,               Visual::NotifyGameInit,  Visual::Process,        Visual::Shutdown},
     {Domain::BulletAssist, BulletAssist::Init, Noop,                    BulletAssist::Process, BulletAssist::Shutdown},
     {Domain::Overlay,      Overlay::Init,      Noop,                    Overlay::Process,      Overlay::Shutdown},
+    {Domain::Camera,       Noop,               Camera::NotifyGameInit,  Camera::Process,       Camera::Shutdown},
+    {Domain::Cheats,       Cheats::Init,       Cheats::NotifyGameInit,  Cheats::Process,       Cheats::Shutdown},
+    {Domain::VehicleEffects, VehicleEffects::Init, VehicleEffects::NotifyGameInit, VehicleEffects::Process, VehicleEffects::Shutdown},
 };
 
 inline bool IsEnabled(DomainMask mask, Domain domain) {
@@ -59,6 +65,9 @@ inline Capability DomainCapability(Domain domain) {
     case Domain::Visual: return Capability::Visual;
     case Domain::BulletAssist: return Capability::BulletAssist;
     case Domain::Overlay: return Capability::Overlay;
+    case Domain::Camera: return Capability::Camera;
+    case Domain::Cheats: return Capability::Cheats;
+    case Domain::VehicleEffects: return Capability::VehicleEffects;
     }
     return Capability::Player;
 }

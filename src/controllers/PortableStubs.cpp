@@ -1,6 +1,7 @@
 #include <string>
 
 #include <XBase/BulletAssist.h>
+#include <XBase/Camera.h>
 #include <XBase/Cheats.h>
 #include <XBase/Hooks.h>
 #include <XBase/Overlay.h>
@@ -11,6 +12,7 @@
 #include <XBase/Types.h>
 #include <XBase/UI.h>
 #include <XBase/Vehicle.h>
+#include <XBase/VehicleEffects.h>
 #include <XBase/Visual.h>
 #include <XBase/Weapon.h>
 #include <XBase/World.h>
@@ -121,6 +123,14 @@ bool SetFightingStyle(int) { return false; }
 bool SetWalkingStyle(int) { return false; }
 }
 
+namespace XBase::VehicleEffects {
+bool ApplyCurrentNeon(const NeonSettings&) { return false; }
+void Init() {}
+void NotifyGameInit() {}
+void Process() {}
+void Shutdown() {}
+}
+
 namespace XBase::Visual {
 void NotifyGameInit() {}
 void Shutdown() {}
@@ -138,6 +148,17 @@ void Draw() {}
 bool ShouldSuppressPedFire(PedId) { return false; }
 }
 
+namespace XBase::Camera {
+bool SetMode(Mode mode) { return mode == Mode::Disabled; }
+Mode GetMode() { return Mode::Disabled; }
+bool IsActive() { return false; }
+void SetSettings(const Settings&) {}
+Settings GetSettings() { return {}; }
+void NotifyGameInit() {}
+void Process() {}
+void Shutdown() {}
+}
+
 namespace XBase::Overlay {
 void Init() {}
 void Process() {}
@@ -150,6 +171,16 @@ void SetPosition(bool, bool, bool, bool) {}
 }
 
 namespace XBase::Cheats {
+void SetRandomSettings(const RandomSettings&) {}
+RandomSettings GetRandomSettings() { return {}; }
+std::size_t GetRandomCheatCount() { return 0; }
+const char* GetRandomCheatName(std::size_t) { return nullptr; }
+bool IsRandomCheatEnabled(std::size_t) { return false; }
+bool SetRandomCheatEnabled(std::size_t, bool) { return false; }
+void Init() {}
+void NotifyGameInit() {}
+void Process() {}
+void Shutdown() {}
 void FlyingCars(bool) {}
 bool IsFlyingCars() { return false; }
 void AllCarsHaveNitro(bool) {}

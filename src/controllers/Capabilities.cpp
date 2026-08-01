@@ -10,6 +10,9 @@ CapabilitySupport GetCapabilitySupport(Capability capability) {
     case Capability::Weapon:
     case Capability::Visual:
     case Capability::Teleport:
+    case Capability::Camera:
+    case Capability::Cheats:
+    case Capability::VehicleEffects:
     case Capability::Hooks:
     case Capability::Ui:
         return CapabilitySupport::Supported;
@@ -100,6 +103,11 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::SceneCutscene:
     case FeatureCapability::BulletAssistFireSuppression:
         return CapabilitySupport::Partial;
+    case FeatureCapability::CameraFreecam:
+    case FeatureCapability::CameraTopDown:
+    case FeatureCapability::CheatsRandom:
+    case FeatureCapability::VehicleEffectsNeon:
+        return CapabilitySupport::Supported;
     }
 #elif defined(XBASE_BACKEND_VC)
     switch (capability) {

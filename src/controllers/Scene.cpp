@@ -11,10 +11,7 @@
 #include "FxManager_c.h"
 #include "FxSystem_c.h"
 #include "extensions/ScriptCommands.h"
-#include <string>
 #include <cstring>
-#include <string>
-#include <string>
 #include <vector>
 
 namespace {
@@ -250,7 +247,9 @@ bool StopCutscene() {
 }
 
 bool IsCutsceneRunning() {
-    return CCutsceneMgr::ms_running || CCutsceneMgr::ms_cutsceneProcessing;
+    return CCutsceneMgr::ms_running
+        || CCutsceneMgr::ms_cutsceneProcessing
+        || (s_cutsceneRestore.owned && CCutsceneMgr::ms_cutsceneLoadStatus != 0);
 }
 
 const char* GetMissionStatus() {

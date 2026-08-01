@@ -136,6 +136,11 @@ bool IsDown(Key key) {
     return s_down[Index(key)].load(std::memory_order_acquire);
 }
 
+bool IsModifierDown(Modifier modifier) {
+    if (modifier == Modifier::None) return false;
+    return (s_modifiers.load(std::memory_order_acquire) & ModifierBit(modifier)) != 0;
+}
+
 bool WasPressed(Key key) {
     return ConsumePressed(key);
 }

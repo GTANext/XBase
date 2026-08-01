@@ -106,6 +106,7 @@ struct Hotkey {
 };
 
 bool IsDown(Key key);
+bool IsModifierDown(Modifier modifier);
 bool WasPressed(Key key);
 bool IsDown(const Hotkey& hotkey);
 bool WasPressed(const Hotkey& hotkey);
