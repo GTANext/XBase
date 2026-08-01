@@ -23,6 +23,14 @@
 
 namespace {
 
+bool IsPedInPool(CPed* ped) {
+    if (!ped || !CPools::ms_pPedPool) return false;
+    for (CPed* pooledPed : CPools::ms_pPedPool) {
+        if (pooledPed == ped) return true;
+    }
+    return false;
+}
+
 bool s_noFireEnabled = false;
 
 bool s_elvisEverywhere = false;

@@ -1,8 +1,9 @@
 #include <XBase/Platform.h>
 
 #include <chrono>
-#include <shellapi.h>
+#include <cstring>
 #include <windows.h>
+#include <shellapi.h>
 
 namespace XBase::Platform {
 
@@ -20,6 +21,31 @@ bool OpenExternal(const char* target) {
     if (!target || !target[0]) return false;
     return reinterpret_cast<std::intptr_t>(
         ShellExecuteA(nullptr, "open", target, nullptr, nullptr, SW_SHOWNORMAL)) > 32;
+}
+
+bool SetClipboardText(const char* text) {
+    if (!text || !OpenClipboard(nullptr)) return false;
+
+    bool copied = false;
+    if (EmptyClipboard()) {
+        const std::size_t size = std::strlen(text) + 1;
+        HGLOBAL memory = GlobalAlloc(GMEM_MOVEABLE, size);
+        if (memory) {
+            void* target = GlobalLock(memory);
+            if (target) {
+                std::memcpy(target, text, size);
+                GlobalUnlock(memory);
+                if (SetClipboardData(CF_TEXT, memory)) {
+                    copied = true;
+                    memory = nullptr;
+                }
+            }
+            if (memory) GlobalFree(memory);
+        }
+    }
+
+    CloseClipboard();
+    return copied;
 }
 
 std::uint64_t MonotonicMilliseconds() {

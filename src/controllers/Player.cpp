@@ -1,6 +1,7 @@
 #include <XBase/Player.h>
 #include <XBase/Core.h>
 #include <XBase/Log.h>
+#include <XBase/Platform.h>
 #include "plugin.h"
 #include "CPlayerPed.h"
 #include "CPools.h"
@@ -12,7 +13,6 @@
 #include "CCamera.h"
 #include "CPad.h"
 #include "extensions/ScriptCommands.h"
-#include <windows.h>
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -659,18 +659,7 @@ void CopyCoordinates() {
     CVector pos = player->GetPosition();
     char buffer[64];
     std::snprintf(buffer, sizeof(buffer), "X: %.2f Y: %.2f Z: %.2f", pos.x, pos.y, pos.z);
-    if (!OpenClipboard(nullptr)) return;
-    EmptyClipboard();
-    HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, std::strlen(buffer) + 1);
-    if (hMem) {
-        char* pMem = static_cast<char*>(GlobalLock(hMem));
-        if (pMem) {
-            std::strcpy(pMem, buffer);
-            GlobalUnlock(hMem);
-            SetClipboardData(CF_TEXT, hMem);
-        }
-    }
-    CloseClipboard();
+    Platform::SetClipboardText(buffer);
 }
 
 bool RequestSaveGame() {

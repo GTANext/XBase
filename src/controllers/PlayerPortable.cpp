@@ -1,11 +1,10 @@
 #include <XBase/Player.h>
+#include <XBase/Platform.h>
 #include "PlayerBackend.h"
 
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
-#include <cstring>
-#include <windows.h>
 
 namespace {
 
@@ -403,20 +402,7 @@ void CopyCoordinates() {
     const auto position = Detail::PlayerBackend::GetPosition(player);
     char buffer[96];
     std::snprintf(buffer, sizeof(buffer), "%.3f, %.3f, %.3f", position.x, position.y, position.z);
-    if (!OpenClipboard(nullptr)) return;
-    EmptyClipboard();
-    HGLOBAL memory = GlobalAlloc(GMEM_MOVEABLE, std::strlen(buffer) + 1);
-    if (memory) {
-        char* target = static_cast<char*>(GlobalLock(memory));
-        if (target) {
-            std::strcpy(target, buffer);
-            GlobalUnlock(memory);
-            SetClipboardData(CF_TEXT, memory);
-        } else {
-            GlobalFree(memory);
-        }
-    }
-    CloseClipboard();
+    Platform::SetClipboardText(buffer);
 }
 bool RequestSaveGame() { return false; }
 void MoveForward(float distance) { MoveRelative(distance, 0.0f, 0.0f); }
