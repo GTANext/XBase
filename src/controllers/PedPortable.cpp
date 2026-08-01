@@ -74,7 +74,26 @@ void SetSpawnLimits(bool limitPolice, bool limitGangs, int maxPolice, int maxGan
     s_maxPolice = maxPolice < 0 ? 0 : maxPolice;
     s_maxGangs = maxGangs < 0 ? 0 : maxGangs;
 }
-CPed* GetLastSpawned() { return static_cast<CPed*>(s_lastSpawned); }
+PedId GetLastSpawnedId() {
+    const int ref = Detail::PedBackend::GetId(s_lastSpawned);
+    return PedId{ref >= 0 ? static_cast<std::uint32_t>(ref) + 1u : 0u};
+}
+PedSnapshot GetLastSpawnedSnapshot() {
+    PedSnapshot snapshot;
+    if (!Detail::PedBackend::IsValid(s_lastSpawned)) return snapshot;
+
+    snapshot.valid = true;
+    snapshot.id = GetLastSpawnedId();
+    snapshot.modelId = Detail::PedBackend::GetModelId(s_lastSpawned);
+    snapshot.position = Detail::PedBackend::GetPosition(s_lastSpawned);
+    snapshot.health = Detail::PedBackend::GetHealth(s_lastSpawned);
+    snapshot.armour = Detail::PedBackend::GetArmour(s_lastSpawned);
+    snapshot.player = Detail::PedBackend::IsPlayer(s_lastSpawned);
+    snapshot.mission = Detail::PedBackend::IsMission(s_lastSpawned);
+    snapshot.cop = Detail::PedBackend::IsCop(s_lastSpawned);
+    snapshot.gang = Detail::PedBackend::IsGang(s_lastSpawned);
+    return snapshot;
+}
 bool SpawnNearPlayer(unsigned int modelId, const Types::PedSpawnOptions& options) {
     s_lastSpawned = Detail::PedBackend::SpawnNearPlayer(modelId, options);
     return s_lastSpawned != nullptr;

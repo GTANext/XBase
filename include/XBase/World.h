@@ -4,6 +4,8 @@
 
 namespace XBase::World {
 
+void NotifyGameInit();
+void Shutdown();
 void Process();
 int GetWeather();
 void SetWeather(int id, bool lock);

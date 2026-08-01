@@ -144,12 +144,24 @@ void ProcessRespawn(void* player) {
 
 namespace XBase::Player {
 
-CPlayerPed* Get() {
-    return static_cast<CPlayerPed*>(Detail::PlayerBackend::GetPlayer());
+bool IsAvailable() {
+    return Detail::PlayerBackend::GetPlayer() != nullptr;
 }
 
-void* GetHandle() {
-    return Detail::PlayerBackend::GetPlayer();
+PlayerSnapshot GetSnapshot() {
+    PlayerSnapshot snapshot;
+    void* player = Detail::PlayerBackend::GetPlayer();
+    if (!player || !Detail::PlayerBackend::IsPlayerValid(player)) return snapshot;
+
+    const Detail::PlayerBackend::Position position = Detail::PlayerBackend::GetPosition(player);
+    snapshot.valid = true;
+    snapshot.position = {position.x, position.y, position.z};
+    snapshot.health = Detail::PlayerBackend::GetHealth(player);
+    snapshot.armour = Detail::PlayerBackend::GetArmour(player);
+    snapshot.money = Detail::PlayerBackend::GetMoney();
+    snapshot.wantedLevel = Detail::PlayerBackend::GetWantedLevel(player);
+    snapshot.proofs = Detail::PlayerBackend::GetProofState(player);
+    return snapshot;
 }
 
 void Process() {

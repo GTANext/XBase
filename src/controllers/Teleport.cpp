@@ -10,16 +10,30 @@
 #include "CMenuManager.h"
 #include "CRadar.h"
 #include "extensions/ScriptCommands.h"
+#include <cmath>
 
 namespace XBase::Teleport {
 
-CVector GetCurrentPosition() {
+bool TryGetCurrentPosition(Vec3& position) {
     CPlayerPed* player = FindPlayerPed();
-    return player ? player->GetPosition() : CVector(0.0f, 0.0f, 10.0f);
+    if (!player) {
+        position = {};
+        return false;
+    }
+    const CVector& value = player->GetPosition();
+    position = {value.x, value.y, value.z};
+    return true;
 }
 
+Vec3 GetCurrentPosition() {
+    Vec3 position{};
+    TryGetCurrentPosition(position);
+    return position;
+}
+
+bool To(float x, float y, float z, int interior) {
     CPlayerPed* player = FindPlayerPed();
-    if (!player) return;
+    if (!player) return false;
     CVector pos(x, y, z);
     CVehicle* veh = player->m_pVehicle;
     const int hplayer = CPools::GetPedRef(player);
@@ -35,24 +49,25 @@ CVector GetCurrentPosition() {
     if (jetpack) plugin::Command<plugin::Commands::TASK_JETPACK>(hplayer);
     player->m_nAreaCode = interior;
     plugin::Command<plugin::Commands::SET_AREA_VISIBLE>(interior);
+    return true;
 }
 
-void Forward(float distance) {
+bool Forward(float distance) {
     CPlayerPed* player = FindPlayerPed();
-    if (!player) return;
+    if (!player) return false;
     const float angle = player->m_fHeadingCurrent;
     const float dx = -std::sin(angle) * distance;
     const float dy = std::cos(angle) * distance;
     CVector pos = player->GetPosition();
     pos.x += dx;
     pos.y += dy;
-    To(pos.x, pos.y, pos.z);
+    return To(pos.x, pos.y, pos.z);
 }
 
-void MapPosition(float x, float y, bool spawnUnderwater) {
+bool MapPosition(float x, float y, bool spawnUnderwater) {
     CVector pos(x, y, 0.0f);
     CPlayerPed* player = FindPlayerPed();
-    if (!player) return;
+    if (!player) return false;
     CStreaming::LoadScene(&pos);
     CStreaming::LoadSceneCollision(&pos);
     CStreaming::LoadAllRequestedModels(false);
@@ -65,18 +80,18 @@ void MapPosition(float x, float y, bool spawnUnderwater) {
     } else {
         pos.z = ground;
     }
-    To(pos.x, pos.y, pos.z);
+    return To(pos.x, pos.y, pos.z);
 }
 
-void Marker(bool spawnUnderwater) {
+bool Marker(bool spawnUnderwater) {
     const auto index = static_cast<unsigned short>(FrontEndMenuManager.m_nTargetBlipIndex);
     const tRadarTrace& blip = CRadar::ms_RadarTrace[index];
-    if (blip.m_nRadarSprite != RADAR_SPRITE_WAYPOINT) return;
-    MapPosition(blip.m_vecPos.x, blip.m_vecPos.y, spawnUnderwater);
+    if (blip.m_nRadarSprite != RADAR_SPRITE_WAYPOINT) return false;
+    return MapPosition(blip.m_vecPos.x, blip.m_vecPos.y, spawnUnderwater);
 }
 
-void Center() {
-    To(0.0f, 0.0f, 3.0f, 0);
+bool Center() {
+    return To(0.0f, 0.0f, 3.0f, 0);
 }
 
 void Process() {

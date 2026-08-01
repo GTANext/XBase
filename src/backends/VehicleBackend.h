@@ -5,6 +5,8 @@
 namespace XBase::Detail::VehicleBackend {
 
 void* GetCurrent();
+int GetId(void* vehicle);
+unsigned int GetModelId(void* vehicle);
 bool IsValidModel(unsigned int modelId);
 bool IsValid(void* vehicle);
 bool IsPlayerUsing(void* vehicle);

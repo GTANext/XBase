@@ -43,6 +43,14 @@ bool IsValid(void* vehicle) {
     return false;
 }
 
+int GetId(void* vehicle) {
+    return IsValid(vehicle) ? CPools::GetVehicleRef(AsVehicle(vehicle)) : -1;
+}
+
+unsigned int GetModelId(void* vehicle) {
+    return IsValid(vehicle) ? static_cast<unsigned int>(AsVehicle(vehicle)->m_nModelIndex) : 0u;
+}
+
 bool IsPlayerUsing(void* vehicle) {
     CPlayerPed* player = FindPlayerPed();
     return vehicle && player && player->m_pVehicle == AsVehicle(vehicle);

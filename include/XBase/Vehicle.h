@@ -1,8 +1,7 @@
 #pragma once
 
 #include "Types.h"
-
-class CVehicle;
+#include "ValueTypes.h"
 
 namespace XBase::Vehicle {
 
@@ -50,7 +49,7 @@ struct SpawnPolicy {
 
 struct SpawnResult {
     bool success = false;
-    CVehicle* vehicle = nullptr;
+    VehicleId vehicle;
     SpawnFailureReason failure = SpawnFailureReason::None;
 };
 
@@ -60,7 +59,19 @@ struct VehicleEvent {
     unsigned int modelId = 0;
 };
 
-CVehicle* GetCurrent();
+struct VehicleSnapshot {
+    VehicleId id;
+    unsigned int modelId = 0;
+    float health = 0.0f;
+    Colors colors;
+    bool lights = false;
+    bool locked = false;
+    bool visible = false;
+    Types::ProofState proofs;
+};
+
+VehicleId GetCurrentId();
+VehicleSnapshot GetSnapshot();
 void SetRuntimeOptions(const RuntimeOptions& options);
 void SetTrafficDensity(float density);
 void SetAutoDriveToWaypoint(bool enable);
@@ -89,7 +100,6 @@ Types::ProofState GetProofState();
 void SetProofState(const Types::ProofState& state);
 bool GetVisible();
 void SetVisible(bool enable);
-#ifdef GTASA
 bool GetAlwaysSkidMarks();
 void SetAlwaysSkidMarks(bool enable);
 bool GetDisableParticles();
@@ -104,14 +114,11 @@ bool GetSirenOrAlarm();
 void SetSirenOrAlarm(bool enable);
 bool GetTakeLessDamage();
 void SetTakeLessDamage(bool enable);
-#endif
 
-#ifdef GTASA
 void AddUpgrade(unsigned int modelId);
 void RemoveUpgrade(unsigned int modelId);
 void RemoveAllUpgrades();
 int GetUpgrade(int slot);
-#endif
 
 Colors GetColors();
 void SetColors(const Colors& colors);
@@ -119,16 +126,12 @@ int  GetPrimaryColor();
 int  GetSecondaryColor();
 void SetPrimaryColor(int color);
 void SetSecondaryColor(int color);
-#ifdef GTASA
 int  GetPaintjob();
 bool SetPaintjob(int paintjob);
-#endif
 
 void OpenDoor(int doorIndex);
 void WarpToSeat(int seatIndex);
-#ifdef GTASA
 void PopDoor(int doorIndex);
-#endif
 void ApplySpeedLock(float speed);
 void ApplyTargetSpeed(float speed);
 void RestoreTargetSpeed();

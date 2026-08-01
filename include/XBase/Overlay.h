@@ -1,11 +1,10 @@
 #pragma once
 
-#include <string>
-
 namespace XBase::Overlay {
 
 void Init();
 void Process();
+void Shutdown();
 void Draw();
 void SetVisible(bool enable);
 bool IsVisible();

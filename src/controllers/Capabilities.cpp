@@ -1,36 +1,56 @@
 #include <XBase/Capabilities.h>
-#include <XBase/Version.h>
 
 namespace XBase {
 
-bool HasCapability(Capability capability) {
+CapabilitySupport GetCapabilitySupport(Capability capability) {
 #if defined(XBASE_BACKEND_SA)
+    switch (capability) {
+    case Capability::Player:
+    case Capability::Vehicle:
+    case Capability::Weapon:
+    case Capability::Visual:
+    case Capability::Teleport:
+    case Capability::Hooks:
+    case Capability::Ui:
+        return CapabilitySupport::Supported;
+    case Capability::Ped:
+    case Capability::World:
+    case Capability::Scene:
+    case Capability::Overlay:
+    case Capability::BulletAssist:
+        return CapabilitySupport::Partial;
+    }
+#elif defined(XBASE_BACKEND_VC)
     switch (capability) {
     case Capability::Player:
     case Capability::Ped:
     case Capability::Vehicle:
-    case Capability::World:
-    case Capability::Weapon:
-    case Capability::Scene:
-    case Capability::Visual:
-    case Capability::Teleport:
-    case Capability::BulletAssist:
-        return true;
-    case Capability::Overlay:
+        return CapabilitySupport::Partial;
     case Capability::Hooks:
     case Capability::Ui:
+        return CapabilitySupport::Supported;
     default:
-        return false;
+        return CapabilitySupport::Unsupported;
     }
-#elif defined(XBASE_BACKEND_VC) || defined(XBASE_BACKEND_III)
-    return capability == Capability::Player || capability == Capability::Vehicle;
+#elif defined(XBASE_BACKEND_III)
+    switch (capability) {
+    case Capability::Player:
+    case Capability::Ped:
+    case Capability::Vehicle:
+        return CapabilitySupport::Partial;
+    case Capability::Hooks:
+    case Capability::Ui:
+        return CapabilitySupport::Supported;
+    default:
+        return CapabilitySupport::Unsupported;
+    }
 #else
     (void)capability;
-    return false;
 #endif
+    return CapabilitySupport::Unsupported;
 }
 
-bool HasCapability(FeatureCapability capability) {
+CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
 #if defined(XBASE_BACKEND_SA)
     switch (capability) {
     case FeatureCapability::PlayerBasicState:
@@ -48,8 +68,6 @@ bool HasCapability(FeatureCapability capability) {
     case FeatureCapability::PedDelete:
     case FeatureCapability::PedAttributes:
     case FeatureCapability::PedClassification:
-    case FeatureCapability::PedMarkerSpawn:
-    case FeatureCapability::PedGlobalStrategies:
     case FeatureCapability::VehicleBasic:
     case FeatureCapability::VehicleColors:
     case FeatureCapability::VehicleDoors:
@@ -64,65 +82,83 @@ bool HasCapability(FeatureCapability capability) {
     case FeatureCapability::WorldTime:
     case FeatureCapability::WorldWeather:
     case FeatureCapability::WorldGravity:
-    case FeatureCapability::WorldPickups:
     case FeatureCapability::WeaponBasic:
     case FeatureCapability::WeaponGive:
     case FeatureCapability::WeaponDrop:
     case FeatureCapability::WeaponSkills:
     case FeatureCapability::WeaponRuntimeEffects:
-    case FeatureCapability::BulletAssistFireSuppression:
     case FeatureCapability::SceneAnimation:
-    case FeatureCapability::SceneParticle:
-    case FeatureCapability::SceneCutscene:
     case FeatureCapability::SceneMission:
     case FeatureCapability::TeleportBasic:
     case FeatureCapability::VisualHudRadar:
     case FeatureCapability::VisualFilter:
-        return true;
-    default:
-        return false;
+        return CapabilitySupport::Supported;
+    case FeatureCapability::PedMarkerSpawn:
+    case FeatureCapability::PedGlobalStrategies:
+    case FeatureCapability::WorldPickups:
+    case FeatureCapability::SceneParticle:
+    case FeatureCapability::SceneCutscene:
+    case FeatureCapability::BulletAssistFireSuppression:
+        return CapabilitySupport::Partial;
     }
-#elif defined(XBASE_BACKEND_VC) || defined(XBASE_BACKEND_III)
+#elif defined(XBASE_BACKEND_VC)
     switch (capability) {
     case FeatureCapability::PlayerBasicState:
-    case FeatureCapability::PlayerRuntimeEffects:
     case FeatureCapability::PlayerProofs:
     case FeatureCapability::PlayerMovement:
-    case FeatureCapability::VehicleBasic:
-    case FeatureCapability::VehicleColors:
-    case FeatureCapability::VehicleDoors:
-    case FeatureCapability::VehicleSpawn:
-    case FeatureCapability::VehicleSpawnSession:
-    case FeatureCapability::VehicleDelete:
-    case FeatureCapability::VehicleEvents:
     case FeatureCapability::PedBasic:
     case FeatureCapability::PedSpawn:
     case FeatureCapability::PedDelete:
     case FeatureCapability::PedAttributes:
     case FeatureCapability::PedClassification:
-        return true;
-    case FeatureCapability::WeaponBasic:
-    case FeatureCapability::WeaponGive:
-    case FeatureCapability::WeaponDrop:
-    case FeatureCapability::WeaponSkills:
-    case FeatureCapability::WeaponRuntimeEffects:
-    case FeatureCapability::BulletAssistFireSuppression:
-    case FeatureCapability::PedMarkerSpawn:
-    case FeatureCapability::TeleportBasic:
-    case FeatureCapability::VisualHudRadar:
-    case FeatureCapability::PedGlobalStrategies:
-    case FeatureCapability::VehiclePopDoors:
-    case FeatureCapability::VehicleSpecialAttributes:
-    case FeatureCapability::VehiclePaintjob:
-    case FeatureCapability::VehicleUpgrades:
-        return false;
+    case FeatureCapability::VehicleDoors:
+    case FeatureCapability::VehicleSpawn:
+    case FeatureCapability::VehicleSpawnSession:
+    case FeatureCapability::VehicleDelete:
+    case FeatureCapability::VehicleEvents:
+        return CapabilitySupport::Supported;
+    case FeatureCapability::PlayerRuntimeEffects:
+    case FeatureCapability::VehicleBasic:
+    case FeatureCapability::VehicleColors:
+        return CapabilitySupport::Partial;
     default:
-        return false;
+        return CapabilitySupport::Unsupported;
+    }
+#elif defined(XBASE_BACKEND_III)
+    switch (capability) {
+    case FeatureCapability::PlayerBasicState:
+    case FeatureCapability::PlayerProofs:
+    case FeatureCapability::PlayerMovement:
+    case FeatureCapability::PedBasic:
+    case FeatureCapability::PedSpawn:
+    case FeatureCapability::PedDelete:
+    case FeatureCapability::PedAttributes:
+    case FeatureCapability::PedClassification:
+    case FeatureCapability::VehicleDoors:
+    case FeatureCapability::VehicleSpawn:
+    case FeatureCapability::VehicleSpawnSession:
+    case FeatureCapability::VehicleDelete:
+    case FeatureCapability::VehicleEvents:
+        return CapabilitySupport::Supported;
+    case FeatureCapability::PlayerRuntimeEffects:
+    case FeatureCapability::VehicleBasic:
+    case FeatureCapability::VehicleColors:
+        return CapabilitySupport::Partial;
+    default:
+        return CapabilitySupport::Unsupported;
     }
 #else
     (void)capability;
-    return false;
 #endif
+    return CapabilitySupport::Unsupported;
+}
+
+bool HasCapability(Capability capability) {
+    return GetCapabilitySupport(capability) != CapabilitySupport::Unsupported;
+}
+
+bool HasCapability(FeatureCapability capability) {
+    return GetCapabilitySupport(capability) != CapabilitySupport::Unsupported;
 }
 
 } // namespace XBase

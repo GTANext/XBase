@@ -187,13 +187,34 @@ namespace {
     }
 }
 
-CVehicle* GetCurrent() {
+static CVehicle* GetCurrentObject() {
     CPlayerPed* player = FindPlayerPed();
     if (!player) return nullptr;
     const int hplayer = CPools::GetPedRef(player);
     if (!plugin::Command<plugin::Commands::IS_CHAR_IN_ANY_CAR>(hplayer)) return nullptr;
     CVehicle* vehicle = player->m_pVehicle;
     return IsVehicleInPool(vehicle) ? vehicle : nullptr;
+}
+
+VehicleId GetCurrentId() {
+    CVehicle* vehicle = GetCurrentObject();
+    const int ref = vehicle ? CPools::GetVehicleRef(vehicle) : -1;
+    return VehicleId{ref >= 0 ? static_cast<std::uint32_t>(ref) + 1u : 0u};
+}
+VehicleSnapshot GetSnapshot() {
+    VehicleSnapshot snapshot;
+    CVehicle* vehicle = GetCurrentObject();
+    if (!vehicle) return snapshot;
+
+    snapshot.id = GetCurrentId();
+    snapshot.modelId = static_cast<unsigned int>(vehicle->m_nModelIndex);
+    snapshot.health = vehicle->m_fHealth;
+    snapshot.colors = GetColors();
+    snapshot.lights = GetLights();
+    snapshot.locked = GetLocked();
+    snapshot.visible = GetVisible();
+    snapshot.proofs = GetProofState();
+    return snapshot;
 }
 
 void SetRuntimeOptions(const RuntimeOptions& options) {
@@ -243,9 +264,11 @@ SpawnResult SpawnEx(unsigned int modelId, const SpawnOptions& options) {
         return result;
     }
     result.success = true;
-    result.vehicle = GetCurrent();
-    if (options.asDriver && result.vehicle) {
-        if (options.cleanupPrevious && s_trackedVehicle && s_trackedVehicle != result.vehicle &&
+    CVehicle* current = GetCurrentObject();
+    const int ref = current ? CPools::GetVehicleRef(current) : -1;
+    result.vehicle = VehicleId{ref >= 0 ? static_cast<std::uint32_t>(ref) + 1u : 0u};
+    if (options.asDriver && current) {
+        if (options.cleanupPrevious && s_trackedVehicle && s_trackedVehicle != current &&
             IsVehicleInPool(s_trackedVehicle)) {
             if (IsPlayerUsingVehicle(s_trackedVehicle) ||
                 !DeleteVehicle(s_trackedVehicle)) {
@@ -254,7 +277,7 @@ SpawnResult SpawnEx(unsigned int modelId, const SpawnOptions& options) {
                 PushEvent(VehicleEventType::PreviousVehicleCleaned, SpawnFailureReason::None, modelId);
             }
         }
-        s_trackedVehicle = result.vehicle;
+        s_trackedVehicle = current;
     }
     PushEvent(VehicleEventType::Spawned, SpawnFailureReason::None, modelId);
     return result;
@@ -287,7 +310,7 @@ void Shutdown() {
 
 void Process() {
     if (!Core::IsWorldReady()) return;
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     ProcessRuntimeOptions(vehicle);
     ProcessAutoDrive(vehicle);
 
@@ -312,14 +335,14 @@ void Process() {
 }
 
 void Repair() {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (!vehicle) return;
     vehicle->Fix();
     vehicle->m_fHealth = 1000.0f;
 }
 
 void Start() {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (!vehicle) return;
     CPlayerPed* player = FindPlayerPed();
     if (!player || player->m_pVehicle != vehicle) return;
@@ -328,21 +351,21 @@ void Start() {
 }
 
 void Stop() {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (!vehicle) return;
     vehicle->m_vecMoveSpeed = CVector(0.0f, 0.0f, 0.0f);
     vehicle->m_vecTurnSpeed = CVector(0.0f, 0.0f, 0.0f);
 }
 
 void SetEngine(bool enable) {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (!vehicle) return;
     vehicle->bEngineBroken = !enable;
     vehicle->bEngineOn = enable;
 }
 
 void Unflip() {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (!vehicle || !vehicle->IsUpsideDown()) return;
     const int handle = CPools::GetVehicleRef(vehicle);
     float roll = 0.0f;
@@ -354,53 +377,53 @@ void Unflip() {
 }
 
 void SetHeavy(bool enable) {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (!vehicle) return;
     plugin::Command<plugin::Commands::SET_CAR_HEAVY>(CPools::GetVehicleRef(vehicle), enable);
 }
 
 void SetWatertight(bool enable) {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (!vehicle) return;
     plugin::Command<plugin::Commands::SET_CAR_WATERTIGHT>(CPools::GetVehicleRef(vehicle), enable);
 }
 
 float GetHealth() {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     return vehicle ? vehicle->m_fHealth : 0.0f;
 }
 
 void SetHealth(float health) {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (vehicle) vehicle->m_fHealth = health;
 }
 
 bool GetLights() {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     return vehicle ? vehicle->bLightsOn : false;
 }
 
 void SetLights(bool enable) {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (!vehicle) return;
     vehicle->bLightsOn = enable;
     vehicle->m_nOverrideLights = enable ? 2 : 1;
 }
 
 bool GetLocked() {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     return vehicle ? vehicle->m_eDoorLock == DOORLOCK_LOCKED_PLAYER_INSIDE : false;
 }
 
 void SetLocked(bool enable) {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (!vehicle) return;
     vehicle->m_eDoorLock = enable ? DOORLOCK_LOCKED_PLAYER_INSIDE : DOORLOCK_UNLOCKED;
 }
 
 Types::ProofState GetProofState() {
     Types::ProofState state;
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (!vehicle) return state;
     state.bullet = vehicle->bBulletProof;
     state.collision = vehicle->bCollisionProof;
@@ -411,7 +434,7 @@ Types::ProofState GetProofState() {
 }
 
 void SetProofState(const Types::ProofState& state) {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (!vehicle) return;
     vehicle->bBulletProof = state.bullet;
     vehicle->bCollisionProof = state.collision;
@@ -421,78 +444,78 @@ void SetProofState(const Types::ProofState& state) {
 }
 
 bool GetVisible() {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     return vehicle ? vehicle->bIsVisible : false;
 }
 
 void SetVisible(bool enable) {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (vehicle) vehicle->bIsVisible = enable;
 }
 
 bool GetAlwaysSkidMarks() {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     return vehicle ? vehicle->bAlwaysSkidMarks : false;
 }
 
 void SetAlwaysSkidMarks(bool enable) {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (vehicle) vehicle->bAlwaysSkidMarks = enable;
 }
 
 bool GetDriverTargetable() {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     return vehicle ? vehicle->bVehicleCanBeTargetted : false;
 }
 
 void SetDriverTargetable(bool enable) {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (vehicle) vehicle->bVehicleCanBeTargetted = enable;
 }
 
 bool GetHeatSeekingTargetable() {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     return vehicle ? vehicle->bVehicleCanBeTargettedByHS : false;
 }
 
 void SetHeatSeekingTargetable(bool enable) {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (vehicle) vehicle->bVehicleCanBeTargettedByHS = enable;
 }
 
 bool GetPetrolTankWeakPoint() {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     return vehicle ? vehicle->bPetrolTankIsWeakPoint : false;
 }
 
 void SetPetrolTankWeakPoint(bool enable) {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (vehicle) vehicle->bPetrolTankIsWeakPoint = enable;
 }
 
 bool GetSirenOrAlarm() {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     return vehicle ? vehicle->bSirenOrAlarm : false;
 }
 
 void SetSirenOrAlarm(bool enable) {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (vehicle) vehicle->bSirenOrAlarm = enable;
 }
 
 bool GetTakeLessDamage() {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     return vehicle ? vehicle->bTakeLessDamage : false;
 }
 
 void SetTakeLessDamage(bool enable) {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (vehicle) vehicle->bTakeLessDamage = enable;
 }
 
 Colors GetColors() {
     Colors colors;
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (!vehicle) return colors;
     colors.primary = vehicle->m_nPrimaryColor;
     colors.secondary = vehicle->m_nSecondaryColor;
@@ -502,7 +525,7 @@ Colors GetColors() {
 }
 
 void SetColors(const Colors& colors) {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (!vehicle) return;
     vehicle->m_nPrimaryColor = static_cast<unsigned char>(colors.primary);
     vehicle->m_nSecondaryColor = static_cast<unsigned char>(colors.secondary);
@@ -513,17 +536,17 @@ void SetColors(const Colors& colors) {
 }
 
 int GetPrimaryColor() {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     return vehicle ? vehicle->m_nPrimaryColor : 0;
 }
 
 int GetSecondaryColor() {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     return vehicle ? vehicle->m_nSecondaryColor : 0;
 }
 
 void SetPrimaryColor(int color) {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (!vehicle) return;
     vehicle->m_nPrimaryColor = static_cast<unsigned char>(color);
     int hveh = CPools::GetVehicleRef(vehicle);
@@ -531,7 +554,7 @@ void SetPrimaryColor(int color) {
 }
 
 void SetSecondaryColor(int color) {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (!vehicle) return;
     vehicle->m_nSecondaryColor = static_cast<unsigned char>(color);
     int hveh = CPools::GetVehicleRef(vehicle);
@@ -539,7 +562,7 @@ void SetSecondaryColor(int color) {
 }
 
 int GetPaintjob() {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (!vehicle) return -1;
     int result = -1;
     int hveh = CPools::GetVehicleRef(vehicle);
@@ -548,7 +571,7 @@ int GetPaintjob() {
 }
 
 bool SetPaintjob(int paintjob) {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (!vehicle) return false;
     int hveh = CPools::GetVehicleRef(vehicle);
     plugin::Command<plugin::Commands::GIVE_VEHICLE_PAINTJOB>(hveh, paintjob);
@@ -556,7 +579,7 @@ bool SetPaintjob(int paintjob) {
 }
 
 void AddUpgrade(unsigned int modelId) {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (!vehicle) return;
     const int model = static_cast<int>(modelId);
     CStreaming::RequestModel(model, PRIORITY_REQUEST);
@@ -566,25 +589,25 @@ void AddUpgrade(unsigned int modelId) {
 }
 
 void RemoveUpgrade(unsigned int modelId) {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (!vehicle) return;
     vehicle->RemoveVehicleUpgrade(static_cast<int>(modelId));
 }
 
 void RemoveAllUpgrades() {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (vehicle) vehicle->RemoveAllUpgrades();
 }
 
 int GetUpgrade(int slot) {
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (!vehicle || slot < 0 || slot >= 15) return -1;
     return vehicle->m_anUpgrades[slot];
 }
 
 void OpenDoor(int doorIndex) {
     if (!Core::IsWorldReady()) return;
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (!vehicle) return;
     int hveh = CPools::GetVehicleRef(vehicle);
     plugin::Command<plugin::Commands::OPEN_CAR_DOOR>(hveh, doorIndex);
@@ -592,7 +615,7 @@ void OpenDoor(int doorIndex) {
 
 void PopDoor(int doorIndex) {
     if (!Core::IsWorldReady()) return;
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (!vehicle) return;
     int hveh = CPools::GetVehicleRef(vehicle);
     plugin::Command<plugin::Commands::POP_CAR_DOOR>(hveh, doorIndex, false);
@@ -602,7 +625,7 @@ void WarpToSeat(int seatIndex) {
     if (!Core::IsWorldReady()) return;
     CPlayerPed* player = FindPlayerPed();
     if (!player) return;
-    CVehicle* vehicle = GetCurrent();
+    CVehicle* vehicle = GetCurrentObject();
     if (!vehicle) return;
     int hveh = CPools::GetVehicleRef(vehicle);
     int hplayer = CPools::GetPedRef(player);

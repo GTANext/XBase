@@ -3,20 +3,22 @@
 namespace XBase::Scene {
 
 void Process();
+void NotifyGameInit();
 void Shutdown();
 bool PlayAnimation(const char* group, const char* name, bool loop);
-void StopAnimation();
+bool StopAnimation();
 bool PlayParticle(const char* name);
-void RemoveAllParticles();
-void RemoveLatestParticle();
+bool RemoveAllParticles();
+bool RemoveLatestParticle();
 bool StartCutscene(const char* name);
-void StopCutscene();
+bool StartCutscene(const char* name, int interior);
+bool StopCutscene();
 bool IsCutsceneRunning();
 
 const char* GetMissionStatus();
-void FailMission();
-void StartMission(int missionId);
-void SetFightingStyle(int style);
-void SetWalkingStyle(int style);
+bool FailMission();
+bool StartMission(int missionId);
+bool SetFightingStyle(int style);
+bool SetWalkingStyle(int style);
 
 } // namespace XBase::Scene

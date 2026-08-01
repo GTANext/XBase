@@ -20,6 +20,17 @@ bool IsValid(void* ped) {
     for (CPed* current : *CPools::ms_pPedPool) if (current == AsPed(ped)) return true;
     return false;
 }
+int GetId(void* ped) { return IsValid(ped) ? CPools::GetPedRef(AsPed(ped)) : -1; }
+unsigned int GetModelId(void* ped) {
+    return IsValid(ped) ? static_cast<unsigned int>(AsPed(ped)->m_nModelIndex) : 0u;
+}
+Vec3 GetPosition(void* ped) {
+    if (!IsValid(ped)) return {};
+    const CVector& position = AsPed(ped)->GetPosition();
+    return {position.x, position.y, position.z};
+}
+float GetHealth(void* ped) { return IsValid(ped) ? AsPed(ped)->m_fHealth : 0.0f; }
+float GetArmour(void* ped) { return IsValid(ped) ? AsPed(ped)->m_fArmour : 0.0f; }
 bool IsMission(void* ped) { return ped && AsPed(ped)->m_nCharCreatedBy == 2; }
 bool IsCop(const void* ped) { return ped && static_cast<const CPed*>(ped)->m_ePedType == PED_TYPE_COP; }
 bool IsGang(const void* ped) {

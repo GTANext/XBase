@@ -22,10 +22,73 @@ int s_lockedHour = 0;
 int s_lockedMinute = 0;
 bool s_fasterClock = false;
 bool s_noWaterPhysics = false;
+bool s_hasClockIntervalSnapshot = false;
+unsigned int s_savedClockInterval = 1000;
+bool s_hasFreezeFlagSnapshot = false;
+unsigned char s_savedFreezeFlag = 0;
+bool s_hasUnderWaternessSnapshot = false;
+float s_savedUnderWaterness = 0.0f;
+
+void CaptureClockInterval() {
+    if (s_hasClockIntervalSnapshot) return;
+    s_savedClockInterval = *reinterpret_cast<unsigned int*>(0xB7CB64);
+    s_hasClockIntervalSnapshot = true;
+}
+
+void CaptureFreezeFlag() {
+    if (s_hasFreezeFlagSnapshot) return;
+    s_savedFreezeFlag = *reinterpret_cast<unsigned char*>(0xB70152);
+    s_hasFreezeFlagSnapshot = true;
+}
+
+bool HasClockOverride() {
+    return s_freezeTime || s_lockedTime || s_fasterClock;
+}
+
+void RestoreClockInterval() {
+    if (!s_hasClockIntervalSnapshot) return;
+    *reinterpret_cast<unsigned int*>(0xB7CB64) = s_savedClockInterval;
+    s_hasClockIntervalSnapshot = false;
+}
+
+void RestoreFreezeFlag() {
+    if (!s_hasFreezeFlagSnapshot) return;
+    *reinterpret_cast<unsigned char*>(0xB70152) = s_savedFreezeFlag;
+    s_hasFreezeFlagSnapshot = false;
+}
+
+void RestoreClockState() {
+    RestoreClockInterval();
+    RestoreFreezeFlag();
+}
 
 } // namespace
 
 namespace XBase::World {
+
+void NotifyGameInit() {
+    s_weatherLocked = false;
+    s_freezeTime = false;
+    s_lockedTime = false;
+    s_fasterClock = false;
+    s_noWaterPhysics = false;
+    s_hasClockIntervalSnapshot = false;
+    s_hasFreezeFlagSnapshot = false;
+    s_hasUnderWaternessSnapshot = false;
+}
+
+void Shutdown() {
+    ReleaseWeather();
+    s_freezeTime = false;
+    s_lockedTime = false;
+    s_fasterClock = false;
+    s_noWaterPhysics = false;
+    RestoreClockState();
+    if (s_hasUnderWaternessSnapshot) {
+        CWeather::UnderWaterness = s_savedUnderWaterness;
+        s_hasUnderWaternessSnapshot = false;
+    }
+}
 
 void Process() {
     if (s_weatherLocked) {
@@ -38,8 +101,6 @@ void Process() {
         *reinterpret_cast<unsigned int*>(0xB7CB64) = 0;
     } else if (s_fasterClock) {
         *reinterpret_cast<unsigned int*>(0xB7CB64) = 10;
-    } else {
-        *reinterpret_cast<unsigned int*>(0xB7CB64) = 1000;
     }
 
     if (s_noWaterPhysics) {
@@ -128,12 +189,20 @@ float GetWetRoads() { return CWeather::WetRoads; }
 void SetWetRoads(float wet) { CWeather::WetRoads = wet; }
 
 void SetFreezeTime(bool enable) {
-    s_freezeTime = enable;
+    if (s_freezeTime == enable) return;
     if (enable) {
+        CaptureClockInterval();
+        CaptureFreezeFlag();
         s_lockedHour = CClock::ms_nGameClockHours;
         s_lockedMinute = CClock::ms_nGameClockMinutes;
+        *reinterpret_cast<unsigned char*>(0xB70152) = 1;
+        s_freezeTime = true;
+        return;
     }
-    *reinterpret_cast<unsigned char*>(0xB70152) = enable ? 1 : 0;
+
+    s_freezeTime = false;
+    RestoreFreezeFlag();
+    if (!HasClockOverride()) RestoreClockInterval();
 }
 
 bool IsTimeFrozen() {
@@ -141,15 +210,28 @@ bool IsTimeFrozen() {
 }
 
 void SetLockedTime(bool enable, int hour, int minute) {
-    s_lockedTime = enable;
     if (enable) {
+        CaptureClockInterval();
+        s_lockedTime = true;
         s_lockedHour = hour;
         s_lockedMinute = minute;
+        return;
     }
+
+    s_lockedTime = false;
+    if (!HasClockOverride()) RestoreClockInterval();
 }
 
 void SetFasterClock(bool enable) {
-    s_fasterClock = enable;
+    if (s_fasterClock == enable) return;
+    if (enable) {
+        CaptureClockInterval();
+        s_fasterClock = true;
+        return;
+    }
+
+    s_fasterClock = false;
+    if (!HasClockOverride()) RestoreClockInterval();
 }
 
 bool IsFasterClock() {
@@ -189,7 +271,19 @@ bool IsFreePayNSpray() {
 }
 
 void SetNoWaterPhysics(bool enable) {
-    s_noWaterPhysics = enable;
+    if (s_noWaterPhysics == enable) return;
+    if (enable) {
+        s_savedUnderWaterness = CWeather::UnderWaterness;
+        s_hasUnderWaternessSnapshot = true;
+        s_noWaterPhysics = true;
+        return;
+    }
+
+    s_noWaterPhysics = false;
+    if (s_hasUnderWaternessSnapshot) {
+        CWeather::UnderWaterness = s_savedUnderWaterness;
+        s_hasUnderWaternessSnapshot = false;
+    }
 }
 
 bool IsNoWaterPhysics() {

@@ -2,17 +2,19 @@
 
 namespace XBase::Weapon {
 
+void NotifyGameInit();
+void Shutdown();
 void Process();
-void GiveAll();
-void ClearAll();
-void DropWeapon();
-void DropCurrent();
+bool GiveAll();
+bool ClearAll();
+bool DropWeapon();
+bool DropCurrent();
 int RemoveTrackedPickups();
-void Give(unsigned int weaponType, unsigned int ammo);
-void GiveModel(unsigned int weaponModel, unsigned int ammo);
-void MaxWeaponSkills();
-void SetInfiniteAmmo(bool enable);
-void SetFastReload(bool enable);
-void ResetStats();
+bool Give(unsigned int weaponType, unsigned int ammo);
+bool GiveModel(unsigned int weaponModel, unsigned int ammo);
+bool MaxWeaponSkills();
+bool SetInfiniteAmmo(bool enable);
+bool SetFastReload(bool enable);
+bool ResetStats();
 
 } // namespace XBase::Weapon

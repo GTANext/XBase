@@ -2,6 +2,7 @@
 
 #include "Version.h"
 #include "Capabilities.h"
+#include "ValueTypes.h"
 #include "Types.h"
 #include "Core.h"
 #include "Player.h"
@@ -20,5 +21,9 @@
 #include "Config.h"
 #include "I18n.h"
 #include "Hooks.h"
+#include "Input.h"
+#include "Host.h"
+#include "Platform.h"
+#include "Runtime.h"
 #include "Theme.h"
 #include "UI.h"

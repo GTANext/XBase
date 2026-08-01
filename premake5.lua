@@ -37,6 +37,24 @@ workspace "XBase"
         "_CRT_NON_CONFORMING_SWPRINTFS",
     }
 
+project "XBaseBootstrap"
+    kind "StaticLib"
+    targetname "XBaseBootstrap"
+    files {
+        "src/Bootstrap.h",
+        "src/Bootstrap.cpp"
+    }
+
+    filter "configurations:Debug"
+        defines { "DEBUG" }
+        optimize "Off"
+        symbols "On"
+    filter "configurations:Release"
+        defines { "NDEBUG" }
+        optimize "Speed"
+        symbols "Off"
+    filter {}
+
 local function add_sa_settings()
     if hasPluginSdk then
         defines { "XBASE_WITH_PLUGIN_SDK", "XBASE_BACKEND_SA", "GTASA", "_GTA_", "RW", "IS_PLATFORM_WIN" }
@@ -47,7 +65,8 @@ local function add_sa_settings()
             path.join(pluginSdkDir, "plugin_sa", "game_sa", "enums"),
             path.join(pluginSdkDir, "plugin_sa", "game_sa", "rw"),
             path.join(pluginSdkDir, "shared"),
-            path.join(pluginSdkDir, "shared", "game")
+            path.join(pluginSdkDir, "shared", "game"),
+            path.join(pluginSdkDir, "shared", "dxsdk")
         }
     end
     if hasKiero then
@@ -63,6 +82,7 @@ local function add_portable_player_target(name, sdkName, gameName, gameDefine, b
         files {
             "include/XBase/**.h",
             "src/backends/PlayerBackend.h",
+            "src/backends/PlayerBackend_" .. string.lower(sdkName) .. ".cpp",
             "src/backends/PedBackend.h",
             "src/backends/PedBackend_" .. string.lower(sdkName) .. ".cpp",
             "src/backends/VehicleBackend.h",
@@ -73,24 +93,47 @@ local function add_portable_player_target(name, sdkName, gameName, gameDefine, b
             "src/controllers/I18n.cpp",
             "src/controllers/Json.cpp",
             "src/controllers/Log.cpp",
+            "src/controllers/Hooks.cpp",
+            "src/controllers/Input.cpp",
+            "src/controllers/Host.cpp",
+            "src/controllers/Platform.cpp",
+            "src/controllers/Runtime.cpp",
+            "src/controllers/RenderFonts.cpp",
+            "src/controllers/RenderFonts.h",
+            "src/controllers/Theme.cpp",
+            "src/controllers/UI.cpp",
             "src/controllers/PlayerPortable.cpp",
             "src/controllers/PedPortable.cpp",
             "src/controllers/PortableStubs.cpp",
-            "src/controllers/VehiclePortable.cpp"
+            "src/controllers/VehiclePortable.cpp",
+            "include/imgui/imgui.cpp",
+            "include/imgui/imgui_draw.cpp",
+            "include/imgui/imgui_tables.cpp",
+            "include/imgui/imgui_widgets.cpp",
+            "include/imgui/imgui_impl_win32.cpp",
+            "include/imgui/imgui_impl_dx9.cpp",
+            "include/kiero/kiero.cpp",
+            "include/kiero/minhook/buffer.c",
+            "include/kiero/minhook/hook.c",
+            "include/kiero/minhook/trampoline.c",
+            "include/kiero/minhook/hde/hde32.c"
         }
         includedirs {
             "include",
             "src/backends",
             "include/imgui",
+            "include/kiero",
             path.join(pluginSdkDir, "plugin_" .. sdkName),
             path.join(pluginSdkDir, "plugin_" .. sdkName, "game_" .. gameName),
             path.join(pluginSdkDir, "plugin_" .. sdkName, "game_" .. gameName, "enums"),
             path.join(pluginSdkDir, "plugin_" .. sdkName, "game_" .. gameName, "rw"),
             path.join(pluginSdkDir, "shared"),
-            path.join(pluginSdkDir, "shared", "game")
+            path.join(pluginSdkDir, "shared", "game"),
+            path.join(pluginSdkDir, "shared", "dxsdk")
         }
         defines {
             "XBASE_WITH_PLUGIN_SDK",
+            "XBASE_WITH_KIERO",
             backendDefine,
             gameDefine,
             "_GTA_",
@@ -115,7 +158,18 @@ project "XBaseSA"
     files {
         "include/XBase/**.h",
         "src/**.h",
-        "src/controllers/*.cpp"
+        "src/controllers/*.cpp",
+        "include/imgui/imgui.cpp",
+        "include/imgui/imgui_draw.cpp",
+        "include/imgui/imgui_tables.cpp",
+        "include/imgui/imgui_widgets.cpp",
+        "include/imgui/imgui_impl_win32.cpp",
+        "include/imgui/imgui_impl_dx9.cpp",
+        "include/kiero/kiero.cpp",
+        "include/kiero/minhook/buffer.c",
+        "include/kiero/minhook/hook.c",
+        "include/kiero/minhook/trampoline.c",
+        "include/kiero/minhook/hde/hde32.c"
     }
     removefiles {
         "src/main.cpp",

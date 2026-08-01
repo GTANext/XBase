@@ -1,11 +1,144 @@
 #include <XBase/Theme.h>
 #include <XBase/Log.h>
 
+#include "imgui/imgui.h"
+
+#include <cstddef>
+#include <cstdint>
+#include <string>
+#include <vector>
+
 namespace XBase::Theme {
 
-static ColorSet s_custom;
+namespace {
+
+ColorSet s_custom;
+std::vector<ImFont*> s_fonts;
+ImGuiContext* s_context = nullptr;
+std::uint16_t s_contextGeneration = 0;
+
+constexpr std::uint32_t FontIndexMask = 0xFFFFu;
+
+bool HasActiveContext() {
+    return s_context && ImGui::GetCurrentContext() == s_context;
+}
+
+std::uint16_t NextGeneration(std::uint16_t generation) {
+    ++generation;
+    return generation == 0 ? 1 : generation;
+}
+
+FontId MakeFontId(std::size_t index) {
+    if (index == 0 || index > FontIndexMask) return {};
+    return FontId{
+        (static_cast<std::uint32_t>(s_contextGeneration) << 16)
+        | static_cast<std::uint32_t>(index)
+    };
+}
+
+bool ResolveFont(FontId font, ImFont*& resolved) {
+    if (!HasActiveContext() || !font) return false;
+    const auto generation = static_cast<std::uint16_t>(font.value >> 16);
+    const auto index = static_cast<std::uint16_t>(font.value & FontIndexMask);
+    if (generation != s_contextGeneration || index == 0 || index > s_fonts.size()) return false;
+    resolved = s_fonts[index - 1];
+    return resolved != nullptr;
+}
+
+ImVec4 ToImVec4(ColorF color) {
+    return {color.r, color.g, color.b, color.a};
+}
+
+ColorF ToColorF(const ImVec4& color) {
+    return {color.x, color.y, color.z, color.w};
+}
+
+} // namespace
+
+void ApplyStyle(const Style& theme) {
+    if (!HasActiveContext()) return;
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.WindowRounding = theme.windowRounding;
+    style.WindowPadding = ImVec2(theme.windowPadding.x, theme.windowPadding.y);
+    style.ItemSpacing = ImVec2(theme.itemSpacing.x, theme.itemSpacing.y);
+    style.FrameRounding = theme.frameRounding;
+    style.TabRounding = theme.tabRounding;
+    style.ChildRounding = theme.frameRounding;
+    style.PopupRounding = theme.frameRounding;
+    style.ScrollbarRounding = theme.frameRounding;
+    style.GrabRounding = theme.frameRounding;
+    style.WindowBorderSize = 1.0f;
+    style.FrameBorderSize = 0.0f;
+    style.PopupBorderSize = 1.0f;
+
+    ImVec4* colors = style.Colors;
+    colors[ImGuiCol_Text] = ToImVec4(theme.text);
+    colors[ImGuiCol_TextDisabled] = ToImVec4(theme.textDisabled);
+    colors[ImGuiCol_WindowBg] = ToImVec4(theme.windowBackground);
+    colors[ImGuiCol_ChildBg] = ToImVec4(theme.childBackground);
+    colors[ImGuiCol_PopupBg] = ToImVec4(theme.popupBackground);
+    colors[ImGuiCol_Border] = ToImVec4(theme.border);
+    colors[ImGuiCol_BorderShadow] = ImVec4(0, 0, 0, 0);
+    colors[ImGuiCol_FrameBg] = ToImVec4(theme.frameBackground);
+    colors[ImGuiCol_FrameBgHovered] = ToImVec4(theme.frameBackgroundHovered);
+    colors[ImGuiCol_FrameBgActive] = ToImVec4(theme.frameBackgroundActive);
+    colors[ImGuiCol_TitleBg] = ToImVec4(theme.titleBackground);
+    colors[ImGuiCol_TitleBgActive] = ToImVec4(theme.titleBackgroundActive);
+    colors[ImGuiCol_TitleBgCollapsed] = ToImVec4(theme.titleBackground);
+    colors[ImGuiCol_MenuBarBg] = ToImVec4(theme.titleBackground);
+    colors[ImGuiCol_ScrollbarBg] = ToImVec4(theme.scrollbarBackground);
+    colors[ImGuiCol_ScrollbarGrab] = ToImVec4(theme.scrollbarGrab);
+    colors[ImGuiCol_ScrollbarGrabHovered] = ToImVec4(theme.headerHovered);
+    colors[ImGuiCol_ScrollbarGrabActive] = ToImVec4(theme.headerActive);
+    colors[ImGuiCol_CheckMark] = ToImVec4(theme.checkMark);
+    colors[ImGuiCol_SliderGrab] = ToImVec4(theme.sliderGrab);
+    colors[ImGuiCol_SliderGrabActive] = ToImVec4(theme.sliderGrabActive);
+    colors[ImGuiCol_Button] = ToImVec4(theme.button);
+    colors[ImGuiCol_ButtonHovered] = ToImVec4(theme.buttonHovered);
+    colors[ImGuiCol_ButtonActive] = ToImVec4(theme.buttonActive);
+    colors[ImGuiCol_Header] = ToImVec4(theme.header);
+    colors[ImGuiCol_HeaderHovered] = ToImVec4(theme.headerHovered);
+    colors[ImGuiCol_HeaderActive] = ToImVec4(theme.headerActive);
+    colors[ImGuiCol_Separator] = ToImVec4(theme.separator);
+    colors[ImGuiCol_SeparatorHovered] = ToImVec4(theme.headerHovered);
+    colors[ImGuiCol_SeparatorActive] = ToImVec4(theme.headerActive);
+    colors[ImGuiCol_ResizeGrip] = ToImVec4(theme.header);
+    colors[ImGuiCol_ResizeGripHovered] = ToImVec4(theme.headerHovered);
+    colors[ImGuiCol_ResizeGripActive] = ToImVec4(theme.headerActive);
+    colors[ImGuiCol_Tab] = ToImVec4(theme.button);
+    colors[ImGuiCol_TabHovered] = ToImVec4(theme.tabHovered);
+    colors[ImGuiCol_TabActive] = ToImVec4(theme.tabActive);
+    colors[ImGuiCol_TabUnfocused] = ToImVec4(theme.frameBackground);
+    colors[ImGuiCol_TabUnfocusedActive] = ToImVec4(theme.header);
+    colors[ImGuiCol_PlotLines] = ToImVec4(theme.checkMark);
+    colors[ImGuiCol_PlotLinesHovered] = ToImVec4(theme.sliderGrabActive);
+    colors[ImGuiCol_PlotHistogram] = ToImVec4(theme.checkMark);
+    colors[ImGuiCol_PlotHistogramHovered] = ToImVec4(theme.sliderGrabActive);
+    colors[ImGuiCol_TableHeaderBg] = ToImVec4(theme.header);
+    colors[ImGuiCol_TableBorderStrong] = ToImVec4(theme.border);
+    colors[ImGuiCol_TableBorderLight] = ToImVec4(theme.separator);
+    colors[ImGuiCol_TableRowBg] = ImVec4(0, 0, 0, 0);
+    colors[ImGuiCol_TableRowBgAlt] = ImVec4(theme.text.r, theme.text.g, theme.text.b, 0.04f);
+    colors[ImGuiCol_TextSelectedBg] = ImVec4(theme.headerActive.r, theme.headerActive.g, theme.headerActive.b, 0.40f);
+    colors[ImGuiCol_DragDropTarget] = ToImVec4(theme.checkMark);
+    colors[ImGuiCol_NavHighlight] = ToImVec4(theme.navigationHighlight);
+    colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1, 1, 1, 0.70f);
+    colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.20f, 0.20f, 0.20f, 0.20f);
+    colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.10f, 0.10f, 0.10f, 0.45f);
+}
+
+void ConfigureInteraction(bool keyboardNavigation, bool mouseEnabled) {
+    if (!HasActiveContext()) return;
+    ImGuiIO& io = ImGui::GetIO();
+    if (keyboardNavigation) io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    else io.ConfigFlags &= ~ImGuiConfigFlags_NavEnableKeyboard;
+
+    if (mouseEnabled) io.ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
+    else io.ConfigFlags |= ImGuiConfigFlags_NoMouse;
+}
 
 void ApplyPreset(Preset preset) {
+    if (!HasActiveContext()) return;
     ImGuiStyle& style = ImGui::GetStyle();
 
     style.WindowRounding = 6.0f;
@@ -123,48 +256,81 @@ void ApplyPreset(Preset preset) {
 }
 
 void Init() {
+    ImGuiContext* context = ImGui::GetCurrentContext();
+    if (!context) return;
+    if (s_context != context) {
+        s_context = context;
+        s_contextGeneration = NextGeneration(s_contextGeneration);
+        s_fonts.clear();
+    }
     ApplyPreset(Preset::Dark);
+}
+
+void Shutdown() {
+    s_fonts.clear();
+    s_context = nullptr;
+    s_contextGeneration = NextGeneration(s_contextGeneration);
 }
 
 void ApplyCustom(const ColorSet& colors) {
+    if (!HasActiveContext()) return;
     s_custom = colors;
-    PushStyle();
+
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.Colors[ImGuiCol_CheckMark] = ToImVec4(colors.primary);
+    style.Colors[ImGuiCol_SliderGrabActive] = ToImVec4(colors.primary);
+    style.Colors[ImGuiCol_ButtonActive] = ToImVec4(colors.accent);
+    style.Colors[ImGuiCol_WindowBg] = ToImVec4(colors.background);
+    style.Colors[ImGuiCol_FrameBg] = ToImVec4(colors.surface);
+    style.Colors[ImGuiCol_Text] = ToImVec4(colors.text);
+    style.Colors[ImGuiCol_TextDisabled] = ToImVec4(colors.textDisabled);
+    style.Colors[ImGuiCol_Border] = ToImVec4(colors.border);
+    style.Colors[ImGuiCol_HeaderActive] = ToImVec4(colors.highlight);
 }
 
 ColorSet GetColors() {
+    if (!HasActiveContext()) return s_custom;
     ImGuiStyle& style = ImGui::GetStyle();
     ColorSet cs;
-    cs.primary      = style.Colors[ImGuiCol_CheckMark];
-    cs.accent       = style.Colors[ImGuiCol_ButtonActive];
-    cs.background   = style.Colors[ImGuiCol_WindowBg];
-    cs.surface      = style.Colors[ImGuiCol_FrameBg];
-    cs.text         = style.Colors[ImGuiCol_Text];
-    cs.textDisabled = style.Colors[ImGuiCol_TextDisabled];
-    cs.border       = style.Colors[ImGuiCol_Border];
-    cs.highlight    = style.Colors[ImGuiCol_HeaderActive];
+    cs.primary      = ToColorF(style.Colors[ImGuiCol_CheckMark]);
+    cs.accent       = ToColorF(style.Colors[ImGuiCol_ButtonActive]);
+    cs.background   = ToColorF(style.Colors[ImGuiCol_WindowBg]);
+    cs.surface      = ToColorF(style.Colors[ImGuiCol_FrameBg]);
+    cs.text         = ToColorF(style.Colors[ImGuiCol_Text]);
+    cs.textDisabled = ToColorF(style.Colors[ImGuiCol_TextDisabled]);
+    cs.border       = ToColorF(style.Colors[ImGuiCol_Border]);
+    cs.highlight    = ToColorF(style.Colors[ImGuiCol_HeaderActive]);
     return cs;
 }
 
-void PushStyle() {
-    ImGui::GetStyle() = ImGuiStyle();
-    ApplyPreset(Preset::Dark);
-}
-
-void PopStyle() {
-}
-
-void LoadFont(const char* path, float size) {
-    ImGuiIO& io = ImGui::GetIO();
-    ImFont* font = io.Fonts->AddFontFromFileTTF(path, size);
-    if (font) {
-        Log::Info(("Theme: loaded font " + std::string(path)).c_str());
-    } else {
-        Log::Warn(("Theme: failed to load font " + std::string(path)).c_str());
+FontId LoadFont(const char* path, float size) {
+    if (!path || path[0] == '\0' || size <= 0.0f) {
+        Log::Warn("Theme: invalid font request");
+        return {};
     }
+
+    if (!HasActiveContext()) {
+        Log::Warn("Theme: font request without an active render context");
+        return {};
+    }
+
+    ImFont* font = ImGui::GetIO().Fonts->AddFontFromFileTTF(path, size);
+    if (!font) {
+        Log::Warn(("Theme: failed to load font " + std::string(path)).c_str());
+        return {};
+    }
+
+    s_fonts.push_back(font);
+    Log::Info(("Theme: loaded font " + std::string(path)).c_str());
+    return MakeFontId(s_fonts.size());
 }
 
-ImFont* GetDefaultFont() {
-    return ImGui::GetIO().Fonts->Fonts.empty() ? nullptr : ImGui::GetIO().Fonts->Fonts[0];
+bool SetDefaultFont(FontId font) {
+    ImFont* resolved = nullptr;
+    if (!ResolveFont(font, resolved)) return false;
+
+    ImGui::GetIO().FontDefault = resolved;
+    return true;
 }
 
 } // namespace XBase::Theme

@@ -1,4 +1,5 @@
 #include <XBase/Types.h>
+#include "TypesSdk.h"
 #include "plugin.h"
 #include "CPed.h"
 

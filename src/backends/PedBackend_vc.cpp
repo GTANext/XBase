@@ -6,7 +6,6 @@
 #include "CPed.h"
 #include "CStreaming.h"
 #include "CWorld.h"
-#include "CRadar.h"
 #include "extensions/ScriptCommands.h"
 #include "plugin.h"
 
@@ -26,6 +25,17 @@ bool IsValid(void* ped) {
     for (CPed* current : *CPools::ms_pPedPool) if (current == AsPed(ped)) return true;
     return false;
 }
+int GetId(void* ped) { return IsValid(ped) ? CPools::GetPedRef(AsPed(ped)) : -1; }
+unsigned int GetModelId(void* ped) {
+    return IsValid(ped) ? static_cast<unsigned int>(AsPed(ped)->m_nModelIndex) : 0u;
+}
+Vec3 GetPosition(void* ped) {
+    if (!IsValid(ped)) return {};
+    const CVector& position = AsPed(ped)->GetPosition();
+    return {position.x, position.y, position.z};
+}
+float GetHealth(void* ped) { return IsValid(ped) ? AsPed(ped)->m_fHealth : 0.0f; }
+float GetArmour(void* ped) { return IsValid(ped) ? AsPed(ped)->m_fArmour : 0.0f; }
 bool IsMission(void* ped) { return ped && AsPed(ped)->m_nPedStatus == 2; }
 bool IsCop(const void* ped) { return ped && static_cast<const CPed*>(ped)->m_nPedType == PED_TYPE_COP; }
 bool IsGang(const void* ped) {
@@ -62,22 +72,7 @@ void* SpawnNearPlayer(unsigned int modelId, const Types::PedSpawnOptions& option
     CStreaming::SetModelIsDeletable(model);
     return ped;
 }
-void* SpawnAtMarker(unsigned int modelId, const Types::PedSpawnOptions& options) {
-    const unsigned int index = static_cast<unsigned int>(LOWORD(FrontEndMenuManager.m_nTargetBlipIndex));
-    if (index >= MAX_RADAR_TRACES || !IsValidModel(modelId)) return nullptr;
-    const auto& trace = CRadar::ms_RadarTrace[index];
-    if (trace.m_nRadarSprite != RADAR_SPRITE_WAYPOINT) return nullptr;
-    CVector position = trace.m_vecPos;
-    const int model = static_cast<int>(modelId);
-    CStreaming::RequestModel(model, PRIORITY_REQUEST);
-    CStreaming::LoadAllRequestedModels(false);
-    int handle = 0;
-    plugin::Command<plugin::Commands::CREATE_CHAR>(options.pedType, model, position.x, position.y, position.z, &handle);
-    CPed* ped = CPools::GetPed(handle);
-    ApplyOptions(ped, options);
-    CStreaming::SetModelIsDeletable(model);
-    return ped;
-}
+void* SpawnAtMarker(unsigned int, const Types::PedSpawnOptions&) { return nullptr; }
 
 void SetElvisEverywhere(bool) {}
 void SetEveryoneArmed(bool enable) { plugin::patch::Set<bool>(0xA10AB3, enable, false); }

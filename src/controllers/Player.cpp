@@ -197,17 +197,33 @@ void ProcessRespawn(CPlayerPed* player) {
 
 namespace XBase::Player {
 
-CPlayerPed* Get() {
+static CPlayerPed* GetPlayerObject() {
     return FindPlayerPed();
 }
 
-void* GetHandle() {
-    return Get();
+bool IsAvailable() {
+    return GetPlayerObject() != nullptr;
+}
+
+PlayerSnapshot GetSnapshot() {
+    PlayerSnapshot snapshot;
+    CPlayerPed* player = GetPlayerObject();
+    if (!player || !IsPedInPool(player)) return snapshot;
+
+    const CVector position = player->GetPosition();
+    snapshot.valid = true;
+    snapshot.position = {position.x, position.y, position.z};
+    snapshot.health = player->m_fHealth;
+    snapshot.armour = player->m_fArmour;
+    snapshot.money = GetMoney();
+    snapshot.wantedLevel = GetWantedLevel();
+    snapshot.proofs = GetProofState();
+    return snapshot;
 }
 
 void Process() {
     if (!Core::IsWorldReady()) return;
-    CPlayerPed* player = Get();
+    CPlayerPed* player = GetPlayerObject();
     if (!player || !IsPedInPool(player)) {
         RestoreSnapshot();
         return;
@@ -357,7 +373,7 @@ RuntimeOptions GetRuntimeOptions() {
 }
 
 bool MoveRelative(float forward, float right, float up) {
-    CPlayerPed* player = Get();
+    CPlayerPed* player = GetPlayerObject();
     if (!player) return false;
     const float angle = player->m_fHeadingCurrent;
     CVector position = player->GetPosition();
@@ -369,12 +385,12 @@ bool MoveRelative(float forward, float right, float up) {
 }
 
 void Heal() {
-    CPlayerPed* player = Get();
+    CPlayerPed* player = GetPlayerObject();
     if (player) player->m_fHealth = 100.0f;
 }
 
 void GiveArmour() {
-    CPlayerPed* player = Get();
+    CPlayerPed* player = GetPlayerObject();
     if (player) player->m_fArmour = 100.0f;
 }
 
@@ -383,17 +399,17 @@ void GiveMoney(int amount) {
 }
 
 void Kill() {
-    CPlayerPed* player = Get();
+    CPlayerPed* player = GetPlayerObject();
     if (player) player->m_fHealth = 0.0f;
 }
 
 int GetWantedLevel() {
-    CPlayerPed* player = Get();
+    CPlayerPed* player = GetPlayerObject();
     return player ? player->GetWantedLevel() : 0;
 }
 
 void SetWantedLevel(int level) {
-    CPlayerPed* player = Get();
+    CPlayerPed* player = GetPlayerObject();
     if (!player) return;
     if (level < 0) level = 0;
     if (level > 6) level = 6;
@@ -413,12 +429,12 @@ void SetMoney(int amount) {
 }
 
 float GetHealth() {
-    CPlayerPed* player = Get();
+    CPlayerPed* player = GetPlayerObject();
     return player ? player->m_fHealth : 0.0f;
 }
 
 void SetHealth(float value) {
-    CPlayerPed* player = Get();
+    CPlayerPed* player = GetPlayerObject();
     if (!player) return;
     const float health = ClampHealth(value);
     player->m_fHealth = health;
@@ -430,12 +446,12 @@ void SetHealth(float value) {
 }
 
 float GetArmour() {
-    CPlayerPed* player = Get();
+    CPlayerPed* player = GetPlayerObject();
     return player ? player->m_fArmour : 0.0f;
 }
 
 void SetArmour(float value) {
-    CPlayerPed* player = Get();
+    CPlayerPed* player = GetPlayerObject();
     if (!player) return;
     player->m_fArmour = value;
     if (s_hasSnapshot && s_trackedPlayer == player) {
@@ -447,7 +463,7 @@ void SetArmour(float value) {
 
 Types::ProofState GetProofState() {
     Types::ProofState state;
-    CPlayerPed* player = Get();
+    CPlayerPed* player = GetPlayerObject();
     if (!player) return state;
     state.bullet = player->bBulletProof;
     state.collision = player->bCollisionProof;
@@ -458,7 +474,7 @@ Types::ProofState GetProofState() {
 }
 
 void SetProofState(const Types::ProofState& state) {
-    CPlayerPed* player = Get();
+    CPlayerPed* player = GetPlayerObject();
     if (!player) return;
     if (s_hasSnapshot && s_trackedPlayer == player) {
         s_savedProofs = state;
@@ -482,7 +498,7 @@ void SetProofState(const Types::ProofState& state) {
 
 bool SetSkin(unsigned int modelId) {
     if (!IsValidPedModel(modelId)) return false;
-    CPlayerPed* player = Get();
+    CPlayerPed* player = GetPlayerObject();
     if (!player) return false;
     const int model = static_cast<int>(modelId);
     CStreaming::RequestModel(model, PRIORITY_REQUEST);
@@ -626,7 +642,7 @@ void SetFreeFly(bool enable) {
     s_freeFly = enable;
     SetBoolPatch(0x969175, enable, s_freeFlyPatch);
     if (enable) {
-        CPlayerPed* player = Get();
+        CPlayerPed* player = GetPlayerObject();
         if (player) {
             player->m_vecMoveSpeed = CVector(0.0f, 0.0f, 0.0f);
         }
@@ -638,7 +654,7 @@ bool IsFreeFly() {
 }
 
 void CopyCoordinates() {
-    CPlayerPed* player = Get();
+    CPlayerPed* player = GetPlayerObject();
     if (!player) return;
     CVector pos = player->GetPosition();
     char buffer[64];
@@ -676,7 +692,7 @@ void MoveDown(float distance) {
 
 bool SetCustomSkin(const char* txdName) {
     if (!txdName || !txdName[0]) return false;
-    CPlayerPed* player = Get();
+    CPlayerPed* player = GetPlayerObject();
     if (!player) return false;
 
     int slot = CTxdStore::FindTxdSlot(txdName);
@@ -702,7 +718,7 @@ bool SetCustomSkin(const char* txdName) {
 }
 
 void ApplyAimSkinChanger() {
-    CPlayerPed* player = Get();
+    CPlayerPed* player = GetPlayerObject();
     if (!player || !Core::IsWorldReady()) return;
 
     CPad* pad = CPad::GetPad(0);

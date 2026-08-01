@@ -1,17 +1,7 @@
 #include <XBase/Core.h>
-#include <XBase/Version.h>
-#include <XBase/Player.h>
-#include <XBase/Vehicle.h>
-#include <XBase/World.h>
-#include <XBase/Ped.h>
-#include <XBase/Weapon.h>
-#include <XBase/Teleport.h>
-#include <XBase/Scene.h>
-#include <XBase/Visual.h>
-#include <XBase/BulletAssist.h>
-#include <XBase/Overlay.h>
-#include <XBase/Cheats.h>
-#include "plugin.h"
+
+#include "CoreLifecycle.h"
+
 #include "CWorld.h"
 
 namespace XBase::Core {
@@ -20,66 +10,19 @@ bool s_gameInitialized = false;
 DomainMask s_enabledDomains = 0;
 
 void Init(DomainMask enabledDomains) {
-    // 宿主可能先收到 initGame 再完成延迟初始化，不能在这里吞掉通知。
-    SetEnabledDomains(enabledDomains);
+    Detail::SetEnabledDomains(s_enabledDomains, s_gameInitialized, enabledDomains);
 }
 
 void Shutdown() {
-    if (IsDomainEnabled(Domain::Player)) {
-        Player::Shutdown();
-    }
-    if (IsDomainEnabled(Domain::Ped)) {
-        Ped::Shutdown();
-    }
-    if (IsDomainEnabled(Domain::Scene)) {
-        Scene::Shutdown();
-    }
-    s_enabledDomains = 0;
-    s_gameInitialized = false;
+    Detail::Shutdown(s_enabledDomains, s_gameInitialized);
 }
 
 void Process() {
-    if (!s_gameInitialized || !IsWorldReady()) return;
-
-    if (IsDomainEnabled(Domain::Player)) Player::Process();
-    if (IsDomainEnabled(Domain::Ped)) Ped::Process();
-    if (IsDomainEnabled(Domain::Vehicle)) Vehicle::Process();
-    if (IsDomainEnabled(Domain::World)) World::Process();
-    if (IsDomainEnabled(Domain::Weapon)) Weapon::Process();
-    if (IsDomainEnabled(Domain::Teleport)) Teleport::Process();
-    if (IsDomainEnabled(Domain::Scene)) Scene::Process();
-    if (IsDomainEnabled(Domain::Visual)) Visual::Process();
-    if (IsDomainEnabled(Domain::BulletAssist)) BulletAssist::Process();
-    if (IsDomainEnabled(Domain::Overlay)) Overlay::Process();
+    Detail::Process(s_enabledDomains, s_gameInitialized, IsWorldReady());
 }
 
 void SetEnabledDomains(DomainMask enabledDomains) {
-    const DomainMask effectiveDomains = enabledDomains & AllDomains;
-    const bool playerWasEnabled = IsDomainEnabled(Domain::Player);
-    const bool playerWillBeEnabled = (effectiveDomains & DomainBit(Domain::Player)) != 0;
-    const bool vehicleWasEnabled = IsDomainEnabled(Domain::Vehicle);
-    const bool vehicleWillBeEnabled = (effectiveDomains & DomainBit(Domain::Vehicle)) != 0;
-    const bool pedWasEnabled = IsDomainEnabled(Domain::Ped);
-    const bool pedWillBeEnabled = (effectiveDomains & DomainBit(Domain::Ped)) != 0;
-    if (playerWasEnabled && !playerWillBeEnabled) {
-        Player::Shutdown();
-    }
-    if (vehicleWasEnabled && !vehicleWillBeEnabled) {
-        Vehicle::Shutdown();
-    }
-    if (pedWasEnabled && !pedWillBeEnabled) {
-        Ped::Shutdown();
-    }
-    s_enabledDomains = effectiveDomains;
-    if (!playerWasEnabled && playerWillBeEnabled && s_gameInitialized) {
-        Player::NotifyGameInit();
-    }
-    if (!vehicleWasEnabled && vehicleWillBeEnabled && s_gameInitialized) {
-        Vehicle::NotifyGameInit();
-    }
-    if (!pedWasEnabled && pedWillBeEnabled && s_gameInitialized) {
-        Ped::NotifyGameInit();
-    }
+    Detail::SetEnabledDomains(s_enabledDomains, s_gameInitialized, enabledDomains);
 }
 
 DomainMask GetEnabledDomains() {
@@ -87,7 +30,7 @@ DomainMask GetEnabledDomains() {
 }
 
 bool IsDomainEnabled(Domain domain) {
-    return (s_enabledDomains & DomainBit(domain)) != 0;
+    return Detail::IsEnabled(s_enabledDomains, domain);
 }
 
 bool IsWorldReady() {
@@ -95,16 +38,7 @@ bool IsWorldReady() {
 }
 
 void NotifyGameInit() {
-    if (IsDomainEnabled(Domain::Player)) {
-        Player::NotifyGameInit();
-    }
-    if (IsDomainEnabled(Domain::Ped)) {
-        Ped::NotifyGameInit();
-    }
-    if (IsDomainEnabled(Domain::Vehicle)) {
-        Vehicle::NotifyGameInit();
-    }
-    s_gameInitialized = true;
+    Detail::NotifyGameInit(s_enabledDomains, s_gameInitialized);
 }
 
 } // namespace XBase::Core

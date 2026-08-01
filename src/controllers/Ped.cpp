@@ -1,6 +1,7 @@
 #include <XBase/Ped.h>
 #include <XBase/Core.h>
 #include <XBase/Log.h>
+#include "TypesSdk.h"
 #include "plugin.h"
 #include "CPlayerPed.h"
 #include "CPed.h"
@@ -130,8 +131,28 @@ void SetSpawnLimits(bool limitPolice, bool limitGangs, int maxPolice, int maxGan
     }
 }
 
-CPed* GetLastSpawned() {
-    return s_lastSpawned;
+PedId GetLastSpawnedId() {
+    if (!s_lastSpawned || !IsPedInPool(s_lastSpawned)) return {};
+    const int ref = CPools::GetPedRef(s_lastSpawned);
+    return PedId{ref >= 0 ? static_cast<std::uint32_t>(ref) + 1u : 0u};
+}
+
+PedSnapshot GetLastSpawnedSnapshot() {
+    PedSnapshot snapshot;
+    if (!s_lastSpawned || !IsPedInPool(s_lastSpawned)) return snapshot;
+
+    const CVector& position = s_lastSpawned->GetPosition();
+    snapshot.valid = true;
+    snapshot.id = GetLastSpawnedId();
+    snapshot.modelId = static_cast<unsigned int>(s_lastSpawned->m_nModelIndex);
+    snapshot.position = {position.x, position.y, position.z};
+    snapshot.health = s_lastSpawned->m_fHealth;
+    snapshot.armour = s_lastSpawned->m_fArmour;
+    snapshot.player = s_lastSpawned == FindPlayerPed();
+    snapshot.mission = Types::IsMissionPed(s_lastSpawned);
+    snapshot.cop = Types::IsCopPed(s_lastSpawned);
+    snapshot.gang = Types::IsGangPed(s_lastSpawned);
+    return snapshot;
 }
 
 bool SpawnNearPlayer(unsigned int modelId, const Types::PedSpawnOptions& options) {

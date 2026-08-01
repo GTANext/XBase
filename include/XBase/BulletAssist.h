@@ -1,12 +1,13 @@
 #pragma once
 
-class CPed;
+#include "ValueTypes.h"
 
 namespace XBase::BulletAssist {
 
 void Init();
 void Process();
+void Shutdown();
 void Draw();
-bool ShouldSuppressPedFire(CPed* ped);
+bool ShouldSuppressPedFire(PedId ped);
 
 } // namespace XBase::BulletAssist

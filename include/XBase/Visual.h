@@ -2,9 +2,11 @@
 
 namespace XBase::Visual {
 
-void DisplayHud(bool enable);
-void DisplayRadar(bool enable);
-void SetFilter(int id, float strength);
+bool DisplayHud(bool enable);
+bool DisplayRadar(bool enable);
+bool SetFilter(int id, float strength);
+void NotifyGameInit();
+void Shutdown();
 void Process();
 
 } // namespace XBase::Visual

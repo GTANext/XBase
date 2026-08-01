@@ -55,6 +55,14 @@ void Init() {
 void Process() {
 }
 
+void Shutdown() {
+    s_visible = false;
+    s_topLeft = true;
+    s_topRight = false;
+    s_bottomLeft = false;
+    s_bottomRight = false;
+}
+
 void Draw() {
     if (!s_visible || !Core::IsWorldReady()) return;
 

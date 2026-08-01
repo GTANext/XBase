@@ -56,6 +56,12 @@ void Process() {
     s_target = nearest;
 }
 
+void Shutdown() {
+    s_target = nullptr;
+    s_enabled = false;
+    s_aimAtNearest = false;
+}
+
 void Draw() {
     if (!s_target || !Core::IsWorldReady()) return;
 
@@ -67,8 +73,8 @@ void Draw() {
     CSprite2d::DrawRect(CRect(cx - 1.0f, cy - 10.0f, cx + 1.0f, cy + 10.0f), red);
 }
 
-bool ShouldSuppressPedFire(CPed* ped) {
-    return ped != nullptr && XBase::Ped::GetNoFire();
+bool ShouldSuppressPedFire(PedId ped) {
+    return static_cast<bool>(ped) && XBase::Ped::GetNoFire();
 }
 
 } // namespace XBase::BulletAssist

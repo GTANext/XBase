@@ -1,10 +1,22 @@
 #pragma once
 
 #include "Types.h"
-
-class CPed;
+#include "ValueTypes.h"
 
 namespace XBase::Ped {
+
+struct PedSnapshot {
+    bool valid = false;
+    PedId id;
+    unsigned int modelId = 0;
+    Vec3 position;
+    float health = 0.0f;
+    float armour = 0.0f;
+    bool player = false;
+    bool mission = false;
+    bool cop = false;
+    bool gang = false;
+};
 
 void Process();
 void NotifyGameInit();
@@ -13,7 +25,8 @@ void SetNoFire(bool enable);
 bool GetNoFire();
 void SetSpawnLimits(bool limitPolice, bool limitGangs, int maxPolice, int maxGangs);
 
-CPed* GetLastSpawned();
+PedId GetLastSpawnedId();
+PedSnapshot GetLastSpawnedSnapshot();
 bool SpawnNearPlayer(unsigned int modelId, const Types::PedSpawnOptions& options);
 bool SpawnAtMarker(unsigned int modelId, const Types::PedSpawnOptions& options);
 void DeleteLastSpawned();

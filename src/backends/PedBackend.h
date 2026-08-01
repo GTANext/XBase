@@ -1,11 +1,17 @@
 #pragma once
 
 #include <XBase/Types.h>
+#include <XBase/ValueTypes.h>
 
 namespace XBase::Detail::PedBackend {
 
 void* GetPlayer();
 bool IsValid(void* ped);
+int GetId(void* ped);
+unsigned int GetModelId(void* ped);
+Vec3 GetPosition(void* ped);
+float GetHealth(void* ped);
+float GetArmour(void* ped);
 bool IsValidModel(unsigned int modelId);
 bool IsMission(void* ped);
 bool IsCop(const void* ped);

@@ -18,6 +18,8 @@
 #include <utility>
 
 namespace XBase::World {
+void NotifyGameInit() {}
+void Shutdown() {}
 void Process() {}
 int GetWeather() { return 0; }
 void SetWeather(int, bool) {}
@@ -72,65 +74,74 @@ bool RemoveTrackedPickups() { return false; }
 }
 
 namespace XBase::Weapon {
+void NotifyGameInit() {}
+void Shutdown() {}
 void Process() {}
-void GiveAll() {}
-void ClearAll() {}
-void DropWeapon() {}
-void DropCurrent() {}
+bool GiveAll() { return false; }
+bool ClearAll() { return false; }
+bool DropWeapon() { return false; }
+bool DropCurrent() { return false; }
 int RemoveTrackedPickups() { return 0; }
-void Give(unsigned int, unsigned int) {}
-void GiveModel(unsigned int, unsigned int) {}
-void MaxWeaponSkills() {}
-void SetInfiniteAmmo(bool) {}
-void SetFastReload(bool) {}
-void ResetStats() {}
+bool Give(unsigned int, unsigned int) { return false; }
+bool GiveModel(unsigned int, unsigned int) { return false; }
+bool MaxWeaponSkills() { return false; }
+bool SetInfiniteAmmo(bool) { return false; }
+bool SetFastReload(bool) { return false; }
+bool ResetStats() { return false; }
 }
 
 namespace XBase::Teleport {
-CVector GetCurrentPosition() { return CVector(0.0f, 0.0f, 10.0f); }
-void To(float, float, float, int) {}
-void Forward(float) {}
-void MapPosition(float, float, bool) {}
-void Marker(bool) {}
-void Center() {}
+bool TryGetCurrentPosition(Vec3& position) { position = {}; return false; }
+Vec3 GetCurrentPosition() { return {}; }
+bool To(float, float, float, int) { return false; }
+bool Forward(float) { return false; }
+bool MapPosition(float, float, bool) { return false; }
+bool Marker(bool) { return false; }
+bool Center() { return false; }
 void Process() {}
 }
 
 namespace XBase::Scene {
 void Process() {}
+void NotifyGameInit() {}
 void Shutdown() {}
 bool PlayAnimation(const char*, const char*, bool) { return false; }
-void StopAnimation() {}
+bool StopAnimation() { return false; }
 bool PlayParticle(const char*) { return false; }
-void RemoveAllParticles() {}
-void RemoveLatestParticle() {}
+bool RemoveAllParticles() { return false; }
+bool RemoveLatestParticle() { return false; }
 bool StartCutscene(const char*) { return false; }
-void StopCutscene() {}
+bool StartCutscene(const char*, int) { return false; }
+bool StopCutscene() { return false; }
 bool IsCutsceneRunning() { return false; }
 const char* GetMissionStatus() { return "unsupported"; }
-void FailMission() {}
-void StartMission(int) {}
-void SetFightingStyle(int) {}
-void SetWalkingStyle(int) {}
+bool FailMission() { return false; }
+bool StartMission(int) { return false; }
+bool SetFightingStyle(int) { return false; }
+bool SetWalkingStyle(int) { return false; }
 }
 
 namespace XBase::Visual {
-void DisplayHud(bool) {}
-void DisplayRadar(bool) {}
-void SetFilter(int, float) {}
+void NotifyGameInit() {}
+void Shutdown() {}
+bool DisplayHud(bool) { return false; }
+bool DisplayRadar(bool) { return false; }
+bool SetFilter(int, float) { return false; }
 void Process() {}
 }
 
 namespace XBase::BulletAssist {
 void Init() {}
 void Process() {}
+void Shutdown() {}
 void Draw() {}
-bool ShouldSuppressPedFire(CPed* ped) { return ped != nullptr; }
+bool ShouldSuppressPedFire(PedId) { return false; }
 }
 
 namespace XBase::Overlay {
 void Init() {}
 void Process() {}
+void Shutdown() {}
 void Draw() {}
 void SetVisible(bool) {}
 bool IsVisible() { return false; }
@@ -151,46 +162,3 @@ void Riot(bool) {}
 bool IsRiot() { return false; }
 }
 
-namespace XBase::Hooks {
-bool Init() { return false; }
-void Shutdown() {}
-bool IsInitialized() { return false; }
-bool IsReady() { return false; }
-void SetDrawCallback(std::function<void()>) {}
-void SetMenuVisible(bool) {}
-bool IsMenuVisible() { return false; }
-void ToggleMenu() {}
-LPDIRECT3DDEVICE9 GetDevice() { return nullptr; }
-}
-
-namespace XBase::Theme {
-void Init() {}
-void ApplyPreset(Preset) {}
-void ApplyCustom(const ColorSet&) {}
-ColorSet GetColors() { return {}; }
-void PushStyle() {}
-void PopStyle() {}
-void LoadFont(const char*, float) {}
-ImFont* GetDefaultFont() { return nullptr; }
-}
-
-namespace XBase::UI {
-void Init(const std::string&) {}
-void Process() {}
-void Shutdown() {}
-void AddWindow(const std::string&, std::function<void()>, bool, ImGuiWindowFlags) {}
-void RemoveWindow(const std::string&) {}
-void SetWindowVisible(const std::string&, bool) {}
-bool IsWindowVisible(const std::string&) { return false; }
-void ToggleWindow(const std::string&) {}
-void BeginTabBar(const std::string&) {}
-void AddTab(const std::string&, std::function<void()>) {}
-bool RenderTabBar(float) { return false; }
-void EndTabBar() {}
-void CenterText(const char*) {}
-void SeparatorText(const char*) {}
-bool StyledButton(const char*, ImVec2) { return false; }
-void BeginGroupBox(const char*, ImVec2) {}
-void EndGroupBox() {}
-void HelpMarker(const char*) {}
-}

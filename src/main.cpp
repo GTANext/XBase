@@ -16,7 +16,6 @@ public:
         XBase::Config::Init();
         XBase::I18n::Init();
         XBase::Core::Init(XBase::Core::AllDomains);
-        XBase::BulletAssist::Init();
 
         plugin::Events::gameProcessEvent += ProcessAll;
         plugin::Events::drawingEvent += OnDraw;

@@ -2,6 +2,12 @@
 
 namespace XBase {
 
+enum class CapabilitySupport {
+    Unsupported,
+    Partial,
+    Supported,
+};
+
 enum class Capability {
     Player,
     Ped,
@@ -67,6 +73,8 @@ enum class FeatureCapability {
 
 // Domain queries are retained for compatibility. New integrations should use
 // feature queries so a partially implemented backend is never over-reported.
+CapabilitySupport GetCapabilitySupport(Capability capability);
+CapabilitySupport GetCapabilitySupport(FeatureCapability capability);
 bool HasCapability(Capability capability);
 bool HasCapability(FeatureCapability capability);
 

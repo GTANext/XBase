@@ -2,6 +2,7 @@
 
 #include "VehicleBackend.h"
 
+#include <cstdint>
 #include <deque>
 #include <windows.h>
 
@@ -33,7 +34,7 @@ void* s_savedVehicle = nullptr;
 bool s_hasSavedProofs = false;
 
 void RestoreProofs() {
-    if (s_hasSavedProofs && s_savedVehicle) {
+    if (s_hasSavedProofs && Detail::VehicleBackend::IsValid(s_savedVehicle)) {
         Detail::VehicleBackend::SetProofState(s_savedVehicle, s_savedProofs);
     }
     s_savedVehicle = nullptr;
@@ -76,8 +77,30 @@ void ProcessRuntimeOptions(void* vehicle) {
 }
 }
 
-CVehicle* GetCurrent() {
-    return static_cast<CVehicle*>(Detail::VehicleBackend::GetCurrent());
+static void* GetCurrentObject() {
+    return Detail::VehicleBackend::GetCurrent();
+}
+
+VehicleId GetCurrentId() {
+    const int ref = Detail::VehicleBackend::GetId(GetCurrentObject());
+    return VehicleId{ref >= 0 ? static_cast<std::uint32_t>(ref) + 1u : 0u};
+}
+
+VehicleSnapshot GetSnapshot() {
+    VehicleSnapshot snapshot;
+    void* vehicle = GetCurrentObject();
+    if (!vehicle || !Detail::VehicleBackend::IsValid(vehicle)) return snapshot;
+
+    snapshot.id = GetCurrentId();
+    snapshot.modelId = Detail::VehicleBackend::GetModelId(vehicle);
+    snapshot.health = Detail::VehicleBackend::GetHealth(vehicle);
+    snapshot.colors.primary = Detail::VehicleBackend::GetPrimaryColor(vehicle);
+    snapshot.colors.secondary = Detail::VehicleBackend::GetSecondaryColor(vehicle);
+    snapshot.lights = Detail::VehicleBackend::GetLights(vehicle);
+    snapshot.locked = Detail::VehicleBackend::GetLocked(vehicle);
+    snapshot.visible = Detail::VehicleBackend::GetVisible(vehicle);
+    snapshot.proofs = Detail::VehicleBackend::GetProofState(vehicle);
+    return snapshot;
 }
 
 void SetRuntimeOptions(const RuntimeOptions& options) {
@@ -137,9 +160,11 @@ SpawnResult SpawnEx(unsigned int modelId, const SpawnOptions& options) {
         return result;
     }
     result.success = true;
-    result.vehicle = GetCurrent();
-    if (options.asDriver && result.vehicle) {
-        if (options.cleanupPrevious && s_trackedVehicle && s_trackedVehicle != result.vehicle &&
+    void* current = GetCurrentObject();
+    const int ref = Detail::VehicleBackend::GetId(current);
+    result.vehicle = VehicleId{ref >= 0 ? static_cast<std::uint32_t>(ref) + 1u : 0u};
+    if (options.asDriver && current) {
+        if (options.cleanupPrevious && s_trackedVehicle && s_trackedVehicle != current &&
             Detail::VehicleBackend::IsValid(s_trackedVehicle)) {
             if (Detail::VehicleBackend::IsPlayerUsing(s_trackedVehicle) ||
                 !Detail::VehicleBackend::Delete(s_trackedVehicle)) {
@@ -148,7 +173,7 @@ SpawnResult SpawnEx(unsigned int modelId, const SpawnOptions& options) {
                 PushEvent(VehicleEventType::PreviousVehicleCleaned, SpawnFailureReason::None, modelId);
             }
         }
-        s_trackedVehicle = result.vehicle;
+        s_trackedVehicle = current;
     }
     PushEvent(VehicleEventType::Spawned, SpawnFailureReason::None, modelId);
     return result;
@@ -206,22 +231,20 @@ Types::ProofState GetProofState() { return Detail::VehicleBackend::GetProofState
 void SetProofState(const Types::ProofState& state) { Detail::VehicleBackend::SetProofState(Detail::VehicleBackend::GetCurrent(), state); }
 bool GetVisible() { return Detail::VehicleBackend::GetVisible(Detail::VehicleBackend::GetCurrent()); }
 void SetVisible(bool enable) { Detail::VehicleBackend::SetVisible(Detail::VehicleBackend::GetCurrent(), enable); }
-#ifdef XBASE_BACKEND_SA
-bool GetAlwaysSkidMarks() { return Detail::VehicleBackend::GetAlwaysSkidMarks(Detail::VehicleBackend::GetCurrent()); }
-void SetAlwaysSkidMarks(bool enable) { Detail::VehicleBackend::SetAlwaysSkidMarks(Detail::VehicleBackend::GetCurrent(), enable); }
-bool GetDisableParticles() { return Detail::VehicleBackend::GetDisableParticles(Detail::VehicleBackend::GetCurrent()); }
-void SetDisableParticles(bool enable) { Detail::VehicleBackend::SetDisableParticles(Detail::VehicleBackend::GetCurrent(), enable); }
-bool GetDriverTargetable() { return Detail::VehicleBackend::GetDriverTargetable(Detail::VehicleBackend::GetCurrent()); }
-void SetDriverTargetable(bool enable) { Detail::VehicleBackend::SetDriverTargetable(Detail::VehicleBackend::GetCurrent(), enable); }
-bool GetHeatSeekingTargetable() { return Detail::VehicleBackend::GetHeatSeekingTargetable(Detail::VehicleBackend::GetCurrent()); }
-void SetHeatSeekingTargetable(bool enable) { Detail::VehicleBackend::SetHeatSeekingTargetable(Detail::VehicleBackend::GetCurrent(), enable); }
-bool GetPetrolTankWeakPoint() { return Detail::VehicleBackend::GetPetrolTankWeakPoint(Detail::VehicleBackend::GetCurrent()); }
-void SetPetrolTankWeakPoint(bool enable) { Detail::VehicleBackend::SetPetrolTankWeakPoint(Detail::VehicleBackend::GetCurrent(), enable); }
-bool GetSirenOrAlarm() { return Detail::VehicleBackend::GetSirenOrAlarm(Detail::VehicleBackend::GetCurrent()); }
-void SetSirenOrAlarm(bool enable) { Detail::VehicleBackend::SetSirenOrAlarm(Detail::VehicleBackend::GetCurrent(), enable); }
-bool GetTakeLessDamage() { return Detail::VehicleBackend::GetTakeLessDamage(Detail::VehicleBackend::GetCurrent()); }
-void SetTakeLessDamage(bool enable) { Detail::VehicleBackend::SetTakeLessDamage(Detail::VehicleBackend::GetCurrent(), enable); }
-#endif
+bool GetAlwaysSkidMarks() { return false; }
+void SetAlwaysSkidMarks(bool) {}
+bool GetDisableParticles() { return false; }
+void SetDisableParticles(bool) {}
+bool GetDriverTargetable() { return false; }
+void SetDriverTargetable(bool) {}
+bool GetHeatSeekingTargetable() { return false; }
+void SetHeatSeekingTargetable(bool) {}
+bool GetPetrolTankWeakPoint() { return false; }
+void SetPetrolTankWeakPoint(bool) {}
+bool GetSirenOrAlarm() { return false; }
+void SetSirenOrAlarm(bool) {}
+bool GetTakeLessDamage() { return false; }
+void SetTakeLessDamage(bool) {}
 int GetPrimaryColor();
 int GetSecondaryColor();
 
@@ -248,11 +271,15 @@ void SetSecondaryColor(int color) {
     colors.secondary = color;
     SetColors(colors);
 }
+int GetPaintjob() { return -1; }
+bool SetPaintjob(int) { return false; }
+void AddUpgrade(unsigned int) {}
+void RemoveUpgrade(unsigned int) {}
+void RemoveAllUpgrades() {}
+int GetUpgrade(int) { return -1; }
 void WarpToSeat(int seatIndex) { Detail::VehicleBackend::WarpToSeat(Detail::VehicleBackend::GetCurrent(), seatIndex); }
 void OpenDoor(int doorIndex) { Detail::VehicleBackend::OpenDoor(Detail::VehicleBackend::GetCurrent(), doorIndex); }
-#ifdef XBASE_BACKEND_SA
-void PopDoor(int doorIndex) { Detail::VehicleBackend::PopDoor(Detail::VehicleBackend::GetCurrent(), doorIndex); }
-#endif
+void PopDoor(int) {}
 void BlowUpAll() { Detail::VehicleBackend::BlowUpAll(); }
 bool Spawn(unsigned int modelId, const SpawnOptions& options) {
     return Detail::VehicleBackend::Spawn(modelId, options.asDriver, options.aircraftInAir);

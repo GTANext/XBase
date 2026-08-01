@@ -1,8 +1,7 @@
 #pragma once
 
 #include "Types.h"
-
-class CPlayerPed;
+#include "ValueTypes.h"
 
 namespace XBase::Player {
 
@@ -17,8 +16,18 @@ struct RuntimeOptions {
     bool freeFlyProtection = false;
 };
 
-CPlayerPed* Get();
-void* GetHandle();
+struct PlayerSnapshot {
+    bool valid = false;
+    Vec3 position;
+    float health = 0.0f;
+    float armour = 0.0f;
+    int money = 0;
+    int wantedLevel = 0;
+    Types::ProofState proofs;
+};
+
+bool IsAvailable();
+PlayerSnapshot GetSnapshot();
 void Process();
 void NotifyGameInit();
 void Shutdown();

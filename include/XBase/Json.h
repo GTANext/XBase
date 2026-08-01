@@ -1,9 +1,10 @@
 #pragma once
 
+#include <cstddef>
 #include <string>
-#include <vector>
 #include <unordered_map>
 #include <variant>
+#include <vector>
 
 namespace XBase::Json {
 
@@ -33,7 +34,7 @@ struct Value {
     std::string AsString(const std::string& def = "") const;
 
     const Value& operator[](const std::string& key) const;
-    const Value& operator[](size_t index) const;
+    const Value& operator[](std::size_t index) const;
 
     Value& Set(const std::string& key, const Value& val);
     void Push(const Value& val);
