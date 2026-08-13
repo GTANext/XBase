@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <string>
+#include <string>
 #include <windows.h>
 
 namespace XBase::Bootstrap {

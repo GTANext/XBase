@@ -17,6 +17,7 @@
 #include "CZoneInfo.h"
 #include "CTheZones.h"
 #include "CRadar.h"
+#include "Events.h"
 #include "common.h"
 #include "extensions/ScriptCommands.h"
 #include <cmath>
@@ -48,6 +49,35 @@ bool s_gangsEverywhere = false;
 bool s_gangWarsActive = false;
 
 CPed* s_lastSpawned = nullptr;
+bool s_renderHookInstalled = false;
+
+void ScaleAnimNodeIfValid(RpHAnimHierarchy* hierarchy, RwMatrix* matrices, int boneId, const RwV3d& scale) {
+    if (!hierarchy || !matrices) return;
+    const int index = RpHAnimIDGetIndex(hierarchy, boneId);
+    if (index < 0 || index >= hierarchy->numNodes) return;
+    RwMatrixScale(&matrices[index], &scale, rwCOMBINEPRECONCAT);
+}
+
+void ApplyBodyAppearance(CPed* ped) {
+    if ((!s_bigHead && !s_thinBody) || !ped || !ped->m_pRwClump) return;
+    RpHAnimHierarchy* hierarchy = GetAnimHierarchyFromSkinClump(ped->m_pRwClump);
+    if (!hierarchy) return;
+    RwMatrix* matrices = RpHAnimHierarchyGetMatrixArray(hierarchy);
+    if (!matrices) return;
+
+    if (s_thinBody) {
+        const RwV3d scale{0.7f, 0.7f, 0.7f};
+        for (int boneId = 1; boneId <= 54; ++boneId) {
+            ScaleAnimNodeIfValid(hierarchy, matrices, boneId, scale);
+        }
+    }
+    if (s_bigHead) {
+        const RwV3d scale{3.0f, 3.0f, 3.0f};
+        for (int boneId = 5; boneId <= 8; ++boneId) {
+            ScaleAnimNodeIfValid(hierarchy, matrices, boneId, scale);
+        }
+    }
+}
 
 bool* CheatAddr(int index) {
     return reinterpret_cast<bool*>(0x969130 + index);
@@ -56,6 +86,12 @@ bool* CheatAddr(int index) {
 } // namespace
 
 namespace XBase::Ped {
+
+void Init() {
+    if (s_renderHookInstalled) return;
+    plugin::Events::pedRenderEvent += ApplyBodyAppearance;
+    s_renderHookInstalled = true;
+}
 
 void Process() {
     *CheatAddr(65) = s_elvisEverywhere;
@@ -77,6 +113,10 @@ void NotifyGameInit() {
 }
 
 void Shutdown() {
+    if (s_renderHookInstalled) {
+        plugin::Events::pedRenderEvent -= ApplyBodyAppearance;
+        s_renderHookInstalled = false;
+    }
     s_noFireEnabled = false;
     s_elvisEverywhere = false;
     s_everyoneArmed = false;

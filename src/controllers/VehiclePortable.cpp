@@ -1,6 +1,6 @@
 #include <XBase/Vehicle.h>
 
-#include "VehicleBackend.h"
+#include "../backends/VehicleBackend.h"
 
 #include <cstdint>
 #include <deque>
@@ -108,10 +108,10 @@ void SetRuntimeOptions(const RuntimeOptions& options) {
     s_speedLock = options.speedLock ? options.speed : 0.0f;
 }
 
-void SetAutoDriveToWaypoint(bool) {}
+bool SetAutoDriveToWaypoint(bool) { return false; }
 
-void SetTrafficDensity(float) {
-    // VC/III traffic-density ABI is intentionally not guessed.
+bool SetTrafficDensity(float) {
+    return false;
 }
 
 void SetSpawnPolicy(const SpawnPolicy& policy) {
@@ -231,20 +231,20 @@ Types::ProofState GetProofState() { return Detail::VehicleBackend::GetProofState
 void SetProofState(const Types::ProofState& state) { Detail::VehicleBackend::SetProofState(Detail::VehicleBackend::GetCurrent(), state); }
 bool GetVisible() { return Detail::VehicleBackend::GetVisible(Detail::VehicleBackend::GetCurrent()); }
 void SetVisible(bool enable) { Detail::VehicleBackend::SetVisible(Detail::VehicleBackend::GetCurrent(), enable); }
-bool GetAlwaysSkidMarks() { return false; }
-void SetAlwaysSkidMarks(bool) {}
-bool GetDisableParticles() { return false; }
-void SetDisableParticles(bool) {}
-bool GetDriverTargetable() { return false; }
-void SetDriverTargetable(bool) {}
-bool GetHeatSeekingTargetable() { return false; }
-void SetHeatSeekingTargetable(bool) {}
-bool GetPetrolTankWeakPoint() { return false; }
-void SetPetrolTankWeakPoint(bool) {}
-bool GetSirenOrAlarm() { return false; }
-void SetSirenOrAlarm(bool) {}
-bool GetTakeLessDamage() { return false; }
-void SetTakeLessDamage(bool) {}
+bool TryGetAlwaysSkidMarks(bool&) { return false; }
+bool SetAlwaysSkidMarks(bool) { return false; }
+bool TryGetDisableParticles(bool&) { return false; }
+bool SetDisableParticles(bool) { return false; }
+bool TryGetDriverTargetable(bool&) { return false; }
+bool SetDriverTargetable(bool) { return false; }
+bool TryGetHeatSeekingTargetable(bool&) { return false; }
+bool SetHeatSeekingTargetable(bool) { return false; }
+bool TryGetPetrolTankWeakPoint(bool&) { return false; }
+bool SetPetrolTankWeakPoint(bool) { return false; }
+bool TryGetSirenOrAlarm(bool&) { return false; }
+bool SetSirenOrAlarm(bool) { return false; }
+bool TryGetTakeLessDamage(bool&) { return false; }
+bool SetTakeLessDamage(bool) { return false; }
 int GetPrimaryColor();
 int GetSecondaryColor();
 

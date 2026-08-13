@@ -54,6 +54,9 @@ void SetWatertight(bool enable);
 
 namespace {
     bool s_disableParticles = false;
+    CVehicle* s_particleVehicle = nullptr;
+    bool s_savedDisableParticles = false;
+    bool s_hasSavedDisableParticles = false;
     float s_speedLock = 0.0f;
     float s_targetSpeed = 0.0f;
     RuntimeOptions s_runtimeOptions;
@@ -94,6 +97,29 @@ namespace {
         }
         s_savedVehicle = nullptr;
         s_hasSavedProofs = false;
+    }
+
+    void RestoreDisableParticles() {
+        if (s_hasSavedDisableParticles && s_particleVehicle && IsVehicleInPool(s_particleVehicle)) {
+            s_particleVehicle->bDisableParticles = s_savedDisableParticles;
+        }
+        s_particleVehicle = nullptr;
+        s_savedDisableParticles = false;
+        s_hasSavedDisableParticles = false;
+    }
+
+    void ApplyDisableParticles(CVehicle* vehicle) {
+        if (!s_disableParticles || !vehicle) {
+            RestoreDisableParticles();
+            return;
+        }
+        if (!s_hasSavedDisableParticles || s_particleVehicle != vehicle) {
+            RestoreDisableParticles();
+            s_particleVehicle = vehicle;
+            s_savedDisableParticles = vehicle->bDisableParticles;
+            s_hasSavedDisableParticles = true;
+        }
+        vehicle->bDisableParticles = true;
     }
 
     void ProcessAutoDrive(CVehicle* vehicle) {
@@ -292,11 +318,13 @@ bool PollEvent(VehicleEvent& event) {
 
 void NotifyGameInit() {
     RestoreProofs();
+    RestoreDisableParticles();
     ResetSpawnSession();
 }
 
 void Shutdown() {
     RestoreProofs();
+    RestoreDisableParticles();
     ResetSpawnSession();
     s_autoDriveEnabled = false;
     s_hasAutoDriveTarget = false;
@@ -313,12 +341,9 @@ void Process() {
     CVehicle* vehicle = GetCurrentObject();
     ProcessRuntimeOptions(vehicle);
     ProcessAutoDrive(vehicle);
+    ApplyDisableParticles(vehicle);
 
     if (vehicle) {
-        if (s_disableParticles) {
-            vehicle->bDisableParticles = true;
-        }
-
         if (s_speedLock > 0.0f) {
             float speed = vehicle->m_vecMoveSpeed.Magnitude();
             if (speed > s_speedLock) {
@@ -453,64 +478,88 @@ void SetVisible(bool enable) {
     if (vehicle) vehicle->bIsVisible = enable;
 }
 
-bool GetAlwaysSkidMarks() {
+bool TryGetAlwaysSkidMarks(bool& value) {
     CVehicle* vehicle = GetCurrentObject();
-    return vehicle ? vehicle->bAlwaysSkidMarks : false;
+    if (!vehicle) return false;
+    value = vehicle->bAlwaysSkidMarks;
+    return true;
 }
 
-void SetAlwaysSkidMarks(bool enable) {
+bool SetAlwaysSkidMarks(bool enable) {
     CVehicle* vehicle = GetCurrentObject();
-    if (vehicle) vehicle->bAlwaysSkidMarks = enable;
+    if (!vehicle) return false;
+    vehicle->bAlwaysSkidMarks = enable;
+    return true;
 }
 
-bool GetDriverTargetable() {
+bool TryGetDriverTargetable(bool& value) {
     CVehicle* vehicle = GetCurrentObject();
-    return vehicle ? vehicle->bVehicleCanBeTargetted : false;
+    if (!vehicle) return false;
+    value = vehicle->bVehicleCanBeTargetted;
+    return true;
 }
 
-void SetDriverTargetable(bool enable) {
+bool SetDriverTargetable(bool enable) {
     CVehicle* vehicle = GetCurrentObject();
-    if (vehicle) vehicle->bVehicleCanBeTargetted = enable;
+    if (!vehicle) return false;
+    vehicle->bVehicleCanBeTargetted = enable;
+    return true;
 }
 
-bool GetHeatSeekingTargetable() {
+bool TryGetHeatSeekingTargetable(bool& value) {
     CVehicle* vehicle = GetCurrentObject();
-    return vehicle ? vehicle->bVehicleCanBeTargettedByHS : false;
+    if (!vehicle) return false;
+    value = vehicle->bVehicleCanBeTargettedByHS;
+    return true;
 }
 
-void SetHeatSeekingTargetable(bool enable) {
+bool SetHeatSeekingTargetable(bool enable) {
     CVehicle* vehicle = GetCurrentObject();
-    if (vehicle) vehicle->bVehicleCanBeTargettedByHS = enable;
+    if (!vehicle) return false;
+    vehicle->bVehicleCanBeTargettedByHS = enable;
+    return true;
 }
 
-bool GetPetrolTankWeakPoint() {
+bool TryGetPetrolTankWeakPoint(bool& value) {
     CVehicle* vehicle = GetCurrentObject();
-    return vehicle ? vehicle->bPetrolTankIsWeakPoint : false;
+    if (!vehicle) return false;
+    value = vehicle->bPetrolTankIsWeakPoint;
+    return true;
 }
 
-void SetPetrolTankWeakPoint(bool enable) {
+bool SetPetrolTankWeakPoint(bool enable) {
     CVehicle* vehicle = GetCurrentObject();
-    if (vehicle) vehicle->bPetrolTankIsWeakPoint = enable;
+    if (!vehicle) return false;
+    vehicle->bPetrolTankIsWeakPoint = enable;
+    return true;
 }
 
-bool GetSirenOrAlarm() {
+bool TryGetSirenOrAlarm(bool& value) {
     CVehicle* vehicle = GetCurrentObject();
-    return vehicle ? vehicle->bSirenOrAlarm : false;
+    if (!vehicle) return false;
+    value = vehicle->bSirenOrAlarm;
+    return true;
 }
 
-void SetSirenOrAlarm(bool enable) {
+bool SetSirenOrAlarm(bool enable) {
     CVehicle* vehicle = GetCurrentObject();
-    if (vehicle) vehicle->bSirenOrAlarm = enable;
+    if (!vehicle) return false;
+    vehicle->bSirenOrAlarm = enable;
+    return true;
 }
 
-bool GetTakeLessDamage() {
+bool TryGetTakeLessDamage(bool& value) {
     CVehicle* vehicle = GetCurrentObject();
-    return vehicle ? vehicle->bTakeLessDamage : false;
+    if (!vehicle) return false;
+    value = vehicle->bTakeLessDamage;
+    return true;
 }
 
-void SetTakeLessDamage(bool enable) {
+bool SetTakeLessDamage(bool enable) {
     CVehicle* vehicle = GetCurrentObject();
-    if (vehicle) vehicle->bTakeLessDamage = enable;
+    if (!vehicle) return false;
+    vehicle->bTakeLessDamage = enable;
+    return true;
 }
 
 Colors GetColors() {
@@ -636,34 +685,41 @@ void WarpToSeat(int seatIndex) {
     }
 }
 
-void SetAutoDriveToWaypoint(bool enable) {
+bool SetAutoDriveToWaypoint(bool enable) {
     if (!enable) {
         s_autoDriveEnabled = false;
         s_hasAutoDriveTarget = false;
-        return;
+        return true;
     }
     const auto index = static_cast<unsigned int>(LOWORD(FrontEndMenuManager.m_nTargetBlipIndex));
     if (index >= MAX_RADAR_TRACES || CRadar::ms_RadarTrace[index].m_nRadarSprite != RADAR_SPRITE_WAYPOINT) {
         s_autoDriveEnabled = false;
         s_hasAutoDriveTarget = false;
-        return;
+        return false;
     }
     const tRadarTrace& blip = CRadar::ms_RadarTrace[index];
     s_autoDriveTarget = blip.m_vecPos;
     s_autoDriveEnabled = true;
     s_hasAutoDriveTarget = true;
+    return true;
 }
 
-void SetTrafficDensity(float density) {
+bool SetTrafficDensity(float density) {
     *reinterpret_cast<float*>(0x8A5B20) = density;
+    return true;
 }
 
-bool GetDisableParticles() {
-    return s_disableParticles;
+bool TryGetDisableParticles(bool& value) {
+    value = s_disableParticles;
+    return true;
 }
 
-void SetDisableParticles(bool enable) {
+bool SetDisableParticles(bool enable) {
     s_disableParticles = enable;
+    if (!enable) {
+        RestoreDisableParticles();
+    }
+    return true;
 }
 
 void ApplySpeedLock(float speed) {

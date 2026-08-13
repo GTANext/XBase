@@ -519,11 +519,12 @@ void SetInfiniteSprint(bool enable) {
     SetBoolPatch(0xB7CEE4, enable, s_infiniteSprintPatch);
 }
 
-void SetKeepStuff(bool enable) {
-    if (s_keepStuffApplied == enable) return;
+bool SetKeepStuff(bool enable) {
+    if (s_keepStuffApplied == enable) return true;
     plugin::Command<plugin::Commands::SWITCH_ARREST_PENALTIES>(enable);
     plugin::Command<plugin::Commands::SWITCH_DEATH_PENALTIES>(enable);
     s_keepStuffApplied = enable;
+    return true;
 }
 
 void SetFreeHealthcare(bool enable) {
@@ -542,8 +543,9 @@ bool GetFreeJail() {
     return CWorld::Players[CWorld::PlayerInFocus].m_bGetOutOfJailFree;
 }
 
-void MaxVehicleSkills() {
+bool MaxVehicleSkills() {
     CCheat::VehicleSkillsCheat();
+    return true;
 }
 
 bool SetStat(int statId, float value) {
@@ -551,64 +553,73 @@ bool SetStat(int statId, float value) {
     return true;
 }
 
-void SuperJump(bool enable) {
+bool SuperJump(bool enable) {
     SetBoolPatch(0x96916C, enable, s_superJumpPatch);
+    return true;
 }
 
-void SuperPunch(bool enable) {
+bool SuperPunch(bool enable) {
     SetBoolPatch(0x969173, enable, s_superPunchPatch);
+    return true;
 }
 
-void UnderwaterBreathing(bool enable) {
+bool UnderwaterBreathing(bool enable) {
     SetBoolPatch(0x96916E, enable, s_underwaterBreathingPatch);
+    return true;
 }
 
-void SetCycleJump(bool enable) {
+bool SetCycleJump(bool enable) {
     SetBoolPatch(0x969161, enable, s_cycleJumpPatch);
+    return true;
 }
 
-void SetNeverHungry(bool enable) {
+bool SetNeverHungry(bool enable) {
     SetBoolPatch(0x969174, enable, s_neverHungryPatch);
+    return true;
 }
 
-void SetFastSprint(bool enable) {
+bool SetFastSprint(bool enable) {
     float* value = reinterpret_cast<float*>(0x8D2458);
     if (enable) {
-        if (s_fastSprintPatch.applied) return;
+        if (s_fastSprintPatch.applied) return true;
         s_fastSprintPatch.original = *value;
         *value = 0.1f;
         s_fastSprintPatch.applied = true;
-        return;
+        return true;
     }
-    if (!s_fastSprintPatch.applied) return;
+    if (!s_fastSprintPatch.applied) return true;
     *value = s_fastSprintPatch.original;
     s_fastSprintPatch.applied = false;
+    return true;
 }
 
-void SetSprintEverywhere(bool enable) {
+bool SetSprintEverywhere(bool enable) {
     unsigned char* value = reinterpret_cast<unsigned char*>(0x688610);
     if (enable) {
-        if (s_sprintEverywherePatch.applied) return;
+        if (s_sprintEverywherePatch.applied) return true;
         std::memcpy(s_sprintEverywherePatch.original, value, sizeof(s_sprintEverywherePatch.original));
         value[0] = 0x90;
         value[1] = 0x90;
         s_sprintEverywherePatch.applied = true;
-        return;
+        return true;
     }
-    if (!s_sprintEverywherePatch.applied) return;
+    if (!s_sprintEverywherePatch.applied) return true;
     std::memcpy(value, s_sprintEverywherePatch.original, sizeof(s_sprintEverywherePatch.original));
     s_sprintEverywherePatch.applied = false;
+    return true;
 }
 
-void SetDrunkEffect(bool enable) {
-    if (s_drunkEffectApplied == enable) return;
+bool SetDrunkEffect(bool enable) {
+    if (s_drunkEffectApplied == enable) return true;
     plugin::Command<plugin::Commands::SET_PLAYER_DRUNKENNESS>(0, enable ? 100 : 0);
     s_drunkEffectApplied = enable;
+    return true;
 }
 
-void SetNeverWanted(bool enable) {
+bool SetNeverWanted(bool enable) {
     SetBoolPatch(0x969171, enable, s_neverWantedPatch);
     if (enable) ClearWantedLevel();
+    return true;
 }
 
 void SetGodMode(bool enable) {
@@ -706,13 +717,13 @@ bool SetCustomSkin(const char* txdName) {
     return false;
 }
 
-void ApplyAimSkinChanger() {
+bool ApplyAimSkinChanger() {
     CPlayerPed* player = GetPlayerObject();
-    if (!player || !Core::IsWorldReady()) return;
+    if (!player || !Core::IsWorldReady()) return false;
 
     CPad* pad = CPad::GetPad(0);
     bool aiming = (pad->NewState.RightShoulder1 > 0 || pad->NewState.ButtonCircle > 0);
-    if (!aiming) return;
+    if (!aiming) return false;
 
     static unsigned int s_skinCycle = 0;
     static const unsigned int skinCycleModels[] = {
@@ -721,7 +732,7 @@ void ApplyAimSkinChanger() {
     };
     const int count = sizeof(skinCycleModels) / sizeof(skinCycleModels[0]);
     s_skinCycle = (s_skinCycle + 1) % count;
-    SetSkin(skinCycleModels[s_skinCycle]);
+    return SetSkin(skinCycleModels[s_skinCycle]);
 }
 
 } // namespace XBase::Player

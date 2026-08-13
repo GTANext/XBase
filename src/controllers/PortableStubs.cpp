@@ -140,14 +140,6 @@ bool SetFilter(int, float) { return false; }
 void Process() {}
 }
 
-namespace XBase::BulletAssist {
-void Init() {}
-void Process() {}
-void Shutdown() {}
-void Draw() {}
-bool ShouldSuppressPedFire(PedId) { return false; }
-}
-
 namespace XBase::Camera {
 bool SetMode(Mode mode) { return mode == Mode::Disabled; }
 Mode GetMode() { return Mode::Disabled; }

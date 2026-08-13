@@ -81,6 +81,9 @@ if not defined PLUGIN_SDK_DIR (
 
 if not exist "build" mkdir "build"
 
+echo Removing stale generated project files...
+del /Q "build\*.sln" "build\*.vcxproj" "build\*.vcxproj.filters" "build\*.vcxproj.user" >nul 2>nul
+
 echo Generating Visual Studio 2022 project files...
 "!PREMAKE_EXE!" vs2022
 if errorlevel 1 (
@@ -92,6 +95,12 @@ if not exist "build\XBase.sln" (
     echo [Error] build\XBase.sln not found.
     goto fail
 )
+for %%T in (XBaseBootstrap XBasePayloadEntry XBaseSA XBaseVC XBaseIII) do (
+    if not exist "build\%%T.vcxproj" (
+        echo [Error] build\%%T.vcxproj was not generated.
+        goto fail
+    )
+)
 
 call :find_msbuild
 if not defined MSBUILD_EXE (
@@ -102,6 +111,20 @@ if not defined MSBUILD_EXE (
 echo.
 echo Using premake: !PREMAKE_EXE!
 echo Using MSBuild: !MSBUILD_EXE!
+
+"!MSBUILD_EXE!" "build\XBase.sln" /m /t:XBaseBootstrap /p:Configuration=%CONFIG% /p:Platform=Win32 /p:PlatformToolset=%PLATFORM_TOOLSET% /verbosity:minimal
+if errorlevel 1 (
+    echo.
+    echo [Error] XBaseBootstrap build failed.
+    goto fail
+)
+
+"!MSBUILD_EXE!" "build\XBase.sln" /m /t:XBasePayloadEntry /p:Configuration=%CONFIG% /p:Platform=Win32 /p:PlatformToolset=%PLATFORM_TOOLSET% /verbosity:minimal
+if errorlevel 1 (
+    echo.
+    echo [Error] XBasePayloadEntry build failed.
+    goto fail
+)
 
 "!MSBUILD_EXE!" "build\XBase.sln" /m /t:XBaseSA /p:Configuration=%CONFIG% /p:Platform=Win32 /p:PlatformToolset=%PLATFORM_TOOLSET% /verbosity:minimal
 if errorlevel 1 (
@@ -124,16 +147,34 @@ if errorlevel 1 (
     goto fail
 )
 
-for %%T in (XBaseSA XBaseVC XBaseIII) do (
+for %%T in (XBaseBootstrap XBasePayloadEntry XBaseSA XBaseVC XBaseIII) do (
     if not exist "build\bin\%CONFIG%\%%T.lib" (
         echo [Error] build\bin\%CONFIG%\%%T.lib was not produced.
         goto fail
     )
 )
 
+if /i "%CONFIG%"=="Release" if exist "..\XMenu\" (
+    if not exist "..\XMenu\include\XBase" mkdir "..\XMenu\include\XBase"
+    if not exist "..\XMenu\lib" mkdir "..\XMenu\lib"
+    xcopy "include\XBase\*.h" "..\XMenu\include\XBase\" /Y /Q >nul
+    if errorlevel 1 (
+        echo [Error] Failed to stage XBase public headers into XMenu.
+        goto fail
+    )
+    for %%T in (XBaseBootstrap XBasePayloadEntry XBaseSA XBaseVC XBaseIII) do (
+        copy /Y "build\bin\%CONFIG%\%%T.lib" "..\XMenu\lib\%%T.lib" >nul
+        if errorlevel 1 (
+            echo [Error] Failed to stage %%T.lib into XMenu.
+            goto fail
+        )
+    )
+    echo [Info] Staged Release SDK to ..\XMenu\include\XBase and ..\XMenu\lib
+)
+
 echo.
 echo Build completed successfully.
-echo Outputs: XBaseSA.lib, XBaseVC.lib, XBaseIII.lib
+echo Outputs: XBaseBootstrap.lib, XBasePayloadEntry.lib, XBaseSA.lib, XBaseVC.lib, XBaseIII.lib
 goto success
 
 :find_premake

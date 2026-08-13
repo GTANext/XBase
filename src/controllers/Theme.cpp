@@ -1,4 +1,5 @@
 #include <XBase/Theme.h>
+#include <XBase/Config.h>
 #include <XBase/Log.h>
 
 #include "imgui/imgui.h"
@@ -330,6 +331,106 @@ bool SetDefaultFont(FontId font) {
     if (!ResolveFont(font, resolved)) return false;
 
     ImGui::GetIO().FontDefault = resolved;
+    return true;
+}
+
+void SavePreset(const std::string& name) {
+    if (!HasActiveContext()) {
+        Log::Warn("Theme: cannot save preset without active context");
+        return;
+    }
+
+    ColorSet cs = GetColors();
+    std::string prefix = "theme." + name + ".";
+
+    Config::SetFloat(prefix + "primary.r", cs.primary.r);
+    Config::SetFloat(prefix + "primary.g", cs.primary.g);
+    Config::SetFloat(prefix + "primary.b", cs.primary.b);
+    Config::SetFloat(prefix + "primary.a", cs.primary.a);
+
+    Config::SetFloat(prefix + "accent.r", cs.accent.r);
+    Config::SetFloat(prefix + "accent.g", cs.accent.g);
+    Config::SetFloat(prefix + "accent.b", cs.accent.b);
+    Config::SetFloat(prefix + "accent.a", cs.accent.a);
+
+    Config::SetFloat(prefix + "background.r", cs.background.r);
+    Config::SetFloat(prefix + "background.g", cs.background.g);
+    Config::SetFloat(prefix + "background.b", cs.background.b);
+    Config::SetFloat(prefix + "background.a", cs.background.a);
+
+    Config::SetFloat(prefix + "surface.r", cs.surface.r);
+    Config::SetFloat(prefix + "surface.g", cs.surface.g);
+    Config::SetFloat(prefix + "surface.b", cs.surface.b);
+    Config::SetFloat(prefix + "surface.a", cs.surface.a);
+
+    Config::SetFloat(prefix + "text.r", cs.text.r);
+    Config::SetFloat(prefix + "text.g", cs.text.g);
+    Config::SetFloat(prefix + "text.b", cs.text.b);
+    Config::SetFloat(prefix + "text.a", cs.text.a);
+
+    Config::SetFloat(prefix + "textDisabled.r", cs.textDisabled.r);
+    Config::SetFloat(prefix + "textDisabled.g", cs.textDisabled.g);
+    Config::SetFloat(prefix + "textDisabled.b", cs.textDisabled.b);
+    Config::SetFloat(prefix + "textDisabled.a", cs.textDisabled.a);
+
+    Config::SetFloat(prefix + "border.r", cs.border.r);
+    Config::SetFloat(prefix + "border.g", cs.border.g);
+    Config::SetFloat(prefix + "border.b", cs.border.b);
+    Config::SetFloat(prefix + "border.a", cs.border.a);
+
+    Config::SetFloat(prefix + "highlight.r", cs.highlight.r);
+    Config::SetFloat(prefix + "highlight.g", cs.highlight.g);
+    Config::SetFloat(prefix + "highlight.b", cs.highlight.b);
+    Config::SetFloat(prefix + "highlight.a", cs.highlight.a);
+
+    Config::Save();
+}
+
+bool LoadPreset(const std::string& name) {
+    std::string prefix = "theme." + name + ".";
+
+    if (!Config::HasKey(prefix + "primary.r")) {
+        Log::Warn(("Theme: preset '" + name + "' not found in config").c_str());
+        return false;
+    }
+
+    ColorSet cs;
+    cs.primary      = {Config::GetFloat(prefix + "primary.r", cs.primary.r),
+                       Config::GetFloat(prefix + "primary.g", cs.primary.g),
+                       Config::GetFloat(prefix + "primary.b", cs.primary.b),
+                       Config::GetFloat(prefix + "primary.a", cs.primary.a)};
+    cs.accent       = {Config::GetFloat(prefix + "accent.r", cs.accent.r),
+                       Config::GetFloat(prefix + "accent.g", cs.accent.g),
+                       Config::GetFloat(prefix + "accent.b", cs.accent.b),
+                       Config::GetFloat(prefix + "accent.a", cs.accent.a)};
+    cs.background   = {Config::GetFloat(prefix + "background.r", cs.background.r),
+                       Config::GetFloat(prefix + "background.g", cs.background.g),
+                       Config::GetFloat(prefix + "background.b", cs.background.b),
+                       Config::GetFloat(prefix + "background.a", cs.background.a)};
+    cs.surface      = {Config::GetFloat(prefix + "surface.r", cs.surface.r),
+                       Config::GetFloat(prefix + "surface.g", cs.surface.g),
+                       Config::GetFloat(prefix + "surface.b", cs.surface.b),
+                       Config::GetFloat(prefix + "surface.a", cs.surface.a)};
+    cs.text         = {Config::GetFloat(prefix + "text.r", cs.text.r),
+                       Config::GetFloat(prefix + "text.g", cs.text.g),
+                       Config::GetFloat(prefix + "text.b", cs.text.b),
+                       Config::GetFloat(prefix + "text.a", cs.text.a)};
+    cs.textDisabled = {Config::GetFloat(prefix + "textDisabled.r", cs.textDisabled.r),
+                       Config::GetFloat(prefix + "textDisabled.g", cs.textDisabled.g),
+                       Config::GetFloat(prefix + "textDisabled.b", cs.textDisabled.b),
+                       Config::GetFloat(prefix + "textDisabled.a", cs.textDisabled.a)};
+    cs.border       = {Config::GetFloat(prefix + "border.r", cs.border.r),
+                       Config::GetFloat(prefix + "border.g", cs.border.g),
+                       Config::GetFloat(prefix + "border.b", cs.border.b),
+                       Config::GetFloat(prefix + "border.a", cs.border.a)};
+    cs.highlight    = {Config::GetFloat(prefix + "highlight.r", cs.highlight.r),
+                       Config::GetFloat(prefix + "highlight.g", cs.highlight.g),
+                       Config::GetFloat(prefix + "highlight.b", cs.highlight.b),
+                       Config::GetFloat(prefix + "highlight.a", cs.highlight.a)};
+
+    ApplyCustom(cs);
+
+    Config::Save();
     return true;
 }
 

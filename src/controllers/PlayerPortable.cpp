@@ -1,6 +1,6 @@
 #include <XBase/Player.h>
 #include <XBase/Platform.h>
-#include "PlayerBackend.h"
+#include "../backends/PlayerBackend.h"
 
 #include <algorithm>
 #include <chrono>
@@ -370,23 +370,23 @@ void SetInfiniteSprint(bool enable) {
     Detail::PlayerBackend::SetInfiniteSprint(s_state.savedInfiniteSprint);
     s_state.infiniteSprintApplied = false;
 }
-void SetKeepStuff(bool) {}
+bool SetKeepStuff(bool) { return false; }
 void SetFreeHealthcare(bool enable) { Detail::PlayerBackend::SetFreeHealthcare(enable); }
 bool GetFreeHealthcare() { return Detail::PlayerBackend::GetFreeHealthcare(); }
 void SetFreeJail(bool enable) { Detail::PlayerBackend::SetFreeJail(enable); }
 bool GetFreeJail() { return Detail::PlayerBackend::GetFreeJail(); }
-void MaxVehicleSkills() {}
+bool MaxVehicleSkills() { return false; }
 bool SetStat(int, float) { return false; }
 
-void SuperJump(bool) {}
-void SuperPunch(bool) {}
-void UnderwaterBreathing(bool) {}
-void SetCycleJump(bool) {}
-void SetNeverHungry(bool) {}
-void SetFastSprint(bool) {}
-void SetSprintEverywhere(bool) {}
-void SetDrunkEffect(bool) {}
-void SetNeverWanted(bool) {}
+bool SuperJump(bool) { return false; }
+bool SuperPunch(bool) { return false; }
+bool UnderwaterBreathing(bool) { return false; }
+bool SetCycleJump(bool) { return false; }
+bool SetNeverHungry(bool) { return false; }
+bool SetFastSprint(bool) { return false; }
+bool SetSprintEverywhere(bool) { return false; }
+bool SetDrunkEffect(bool) { return false; }
+bool SetNeverWanted(bool) { return false; }
 void SetGodMode(bool enable) { s_state.godMode = enable; if (!HasPersistentEffect()) RestoreSnapshot(); }
 bool IsGodMode() { return s_state.godMode; }
 void SetInvisible(bool enable) { s_state.invisible = enable; if (!HasPersistentEffect()) RestoreSnapshot(); }
@@ -408,6 +408,6 @@ bool RequestSaveGame() { return false; }
 void MoveForward(float distance) { MoveRelative(distance, 0.0f, 0.0f); }
 void MoveUp(float distance) { MoveRelative(0.0f, 0.0f, distance); }
 void MoveDown(float distance) { MoveRelative(0.0f, 0.0f, -distance); }
-void ApplyAimSkinChanger() {}
+bool ApplyAimSkinChanger() { return false; }
 
 } // namespace XBase::Player

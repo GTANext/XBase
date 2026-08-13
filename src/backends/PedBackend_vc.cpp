@@ -14,6 +14,10 @@ namespace {
 CPed* AsPed(void* ped) { return static_cast<CPed*>(ped); }
 }
 
+void Init() {}
+void Shutdown() {}
+void SetBodyAppearance(bool, bool) {}
+
 bool IsValidModel(unsigned int modelId) {
     return CModelInfo::IsPedModel(static_cast<int>(modelId));
 }

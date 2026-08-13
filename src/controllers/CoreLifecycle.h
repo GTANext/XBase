@@ -22,31 +22,34 @@
 namespace XBase::Core::Detail {
 
 using LifecycleFn = void (*)();
+using InitializationCheck = bool (*)();
 
 inline void Noop() {}
+inline bool Initialized() { return true; }
 
 struct DomainLifecycle {
     Domain domain;
     LifecycleFn init;
+    InitializationCheck isInitialized;
     LifecycleFn notifyGameInit;
     LifecycleFn process;
     LifecycleFn shutdown;
 };
 
 inline const DomainLifecycle kDomains[] = {
-    {Domain::Player,       Noop,               Player::NotifyGameInit,  Player::Process,       Player::Shutdown},
-    {Domain::Ped,          Noop,               Ped::NotifyGameInit,     Ped::Process,          Ped::Shutdown},
-    {Domain::Vehicle,      Noop,               Vehicle::NotifyGameInit, Vehicle::Process,      Vehicle::Shutdown},
-    {Domain::World,        Noop,               World::NotifyGameInit,   World::Process,         World::Shutdown},
-    {Domain::Weapon,       Noop,               Weapon::NotifyGameInit,  Weapon::Process,        Weapon::Shutdown},
-    {Domain::Teleport,     Noop,               Noop,                    Teleport::Process,      Noop},
-    {Domain::Scene,        Noop,               Scene::NotifyGameInit,   Scene::Process,         Scene::Shutdown},
-    {Domain::Visual,       Noop,               Visual::NotifyGameInit,  Visual::Process,        Visual::Shutdown},
-    {Domain::BulletAssist, BulletAssist::Init, Noop,                    BulletAssist::Process, BulletAssist::Shutdown},
-    {Domain::Overlay,      Overlay::Init,      Noop,                    Overlay::Process,      Overlay::Shutdown},
-    {Domain::Camera,       Noop,               Camera::NotifyGameInit,  Camera::Process,       Camera::Shutdown},
-    {Domain::Cheats,       Cheats::Init,       Cheats::NotifyGameInit,  Cheats::Process,       Cheats::Shutdown},
-    {Domain::VehicleEffects, VehicleEffects::Init, VehicleEffects::NotifyGameInit, VehicleEffects::Process, VehicleEffects::Shutdown},
+    {Domain::Player,       Noop,               Initialized,                  Player::NotifyGameInit,  Player::Process,       Player::Shutdown},
+    {Domain::Ped,          Ped::Init,          Initialized,                  Ped::NotifyGameInit,     Ped::Process,          Ped::Shutdown},
+    {Domain::Vehicle,      Noop,               Initialized,                  Vehicle::NotifyGameInit, Vehicle::Process,      Vehicle::Shutdown},
+    {Domain::World,        Noop,               Initialized,                  World::NotifyGameInit,   World::Process,        World::Shutdown},
+    {Domain::Weapon,       Noop,               Initialized,                  Weapon::NotifyGameInit,  Weapon::Process,       Weapon::Shutdown},
+    {Domain::Teleport,     Noop,               Initialized,                  Noop,                    Teleport::Process,      Noop},
+    {Domain::Scene,        Noop,               Initialized,                  Scene::NotifyGameInit,   Scene::Process,         Scene::Shutdown},
+    {Domain::Visual,       Noop,               Initialized,                  Visual::NotifyGameInit,  Visual::Process,        Visual::Shutdown},
+    {Domain::BulletAssist, BulletAssist::Init, BulletAssist::IsInitialized, Noop,                    BulletAssist::Process, BulletAssist::Shutdown},
+    {Domain::Overlay,      Overlay::Init,      Initialized,                  Noop,                    Overlay::Process,      Overlay::Shutdown},
+    {Domain::Camera,       Noop,               Initialized,                  Camera::NotifyGameInit,  Camera::Process,       Camera::Shutdown},
+    {Domain::Cheats,       Cheats::Init,       Initialized,                  Cheats::NotifyGameInit,  Cheats::Process,       Cheats::Shutdown},
+    {Domain::VehicleEffects, VehicleEffects::Init, Initialized,              VehicleEffects::NotifyGameInit, VehicleEffects::Process, VehicleEffects::Shutdown},
 };
 
 inline bool IsEnabled(DomainMask mask, Domain domain) {
@@ -82,27 +85,39 @@ inline DomainMask SupportedDomains(DomainMask requested) {
     return supported;
 }
 
-inline void SetEnabledDomains(DomainMask& current, bool gameInitialized, DomainMask requested) {
-    const DomainMask next = SupportedDomains(requested & AllDomains);
+inline void SetEnabledDomains(
+    DomainMask& requested,
+    DomainMask& active,
+    bool gameInitialized,
+    DomainMask nextRequested) {
+    requested = nextRequested & AllDomains;
+    const DomainMask candidates = SupportedDomains(requested);
 
     for (std::size_t i = std::size(kDomains); i > 0; --i) {
         const DomainLifecycle& entry = kDomains[i - 1];
-        if (IsEnabled(current, entry.domain) && !IsEnabled(next, entry.domain)) entry.shutdown();
+        if (IsEnabled(active, entry.domain) && !IsEnabled(candidates, entry.domain)) {
+            entry.shutdown();
+            active &= ~DomainBit(entry.domain);
+        }
     }
 
-    const DomainMask previous = current;
-    current = next;
     for (const DomainLifecycle& entry : kDomains) {
-        if (IsEnabled(previous, entry.domain) || !IsEnabled(next, entry.domain)) continue;
+        if (IsEnabled(active, entry.domain) || !IsEnabled(candidates, entry.domain)) continue;
         entry.init();
+        if (!entry.isInitialized()) {
+            entry.shutdown();
+            continue;
+        }
+        active |= DomainBit(entry.domain);
         if (gameInitialized) entry.notifyGameInit();
     }
 }
 
-inline void NotifyGameInit(DomainMask enabled, bool& gameInitialized) {
+inline void NotifyGameInit(DomainMask active, bool& gameInitialized) {
+    if (gameInitialized) return;
     gameInitialized = true;
     for (const DomainLifecycle& entry : kDomains) {
-        if (IsEnabled(enabled, entry.domain)) entry.notifyGameInit();
+        if (IsEnabled(active, entry.domain)) entry.notifyGameInit();
     }
 }
 
@@ -113,12 +128,13 @@ inline void Process(DomainMask enabled, bool gameInitialized, bool worldReady) {
     }
 }
 
-inline void Shutdown(DomainMask& enabled, bool& gameInitialized) {
+inline void Shutdown(DomainMask& requested, DomainMask& active, bool& gameInitialized) {
     for (std::size_t i = std::size(kDomains); i > 0; --i) {
         const DomainLifecycle& entry = kDomains[i - 1];
-        if (IsEnabled(enabled, entry.domain)) entry.shutdown();
+        if (IsEnabled(active, entry.domain)) entry.shutdown();
     }
-    enabled = 0;
+    requested = 0;
+    active = 0;
     gameInitialized = false;
 }
 

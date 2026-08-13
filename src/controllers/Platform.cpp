@@ -2,8 +2,15 @@
 
 #include <chrono>
 #include <cstring>
+#include <fstream>
+#include <iterator>
+#include <string>
+#include <vector>
 #include <windows.h>
 #include <shellapi.h>
+#include <urlmon.h>
+
+#pragma comment(lib, "urlmon.lib")
 
 namespace XBase::Platform {
 
@@ -92,16 +99,114 @@ std::string CurrentModuleDirectory() {
     return DirectoryFromModule(module);
 }
 
+bool IsModuleLoaded(const char* moduleName) {
+    return moduleName && moduleName[0] && GetModuleHandleA(moduleName) != nullptr;
+}
+
 bool EnsureDirectory(const std::string& path) {
     if (path.empty()) return false;
     if (CreateDirectoryA(path.c_str(), nullptr)) return true;
     return GetLastError() == ERROR_ALREADY_EXISTS;
 }
 
+bool DirectoryExists(const std::string& path) {
+    const DWORD attributes = GetFileAttributesA(path.c_str());
+    return attributes != INVALID_FILE_ATTRIBUTES
+        && (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+}
+
 bool FileExists(const std::string& path) {
     const DWORD attributes = GetFileAttributesA(path.c_str());
     return attributes != INVALID_FILE_ATTRIBUTES
         && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+}
+
+bool DownloadText(const char* url, std::string& output) {
+    output.clear();
+    if (!url || !url[0]) return false;
+
+    IStream* stream = nullptr;
+    if (FAILED(URLOpenBlockingStreamA(nullptr, url, &stream, 0, nullptr)) || !stream) {
+        return false;
+    }
+
+    char buffer[4096];
+    ULONG bytesRead = 0;
+    bool success = true;
+    do {
+        const HRESULT result = stream->Read(buffer, sizeof(buffer), &bytesRead);
+        if (FAILED(result)) {
+            success = false;
+            break;
+        }
+        output.append(buffer, bytesRead);
+    } while (bytesRead != 0);
+
+    stream->Release();
+    if (!success || output.empty()) {
+        output.clear();
+        return false;
+    }
+    return true;
+}
+
+bool ReadTextFile(const std::string& path, std::string& output) {
+    output.clear();
+    std::ifstream file(path, std::ios::binary);
+    if (!file.is_open()) return false;
+    output.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+    return true;
+}
+
+bool WriteTextFile(const std::string& path, const std::string& content) {
+    std::ofstream file(path, std::ios::binary | std::ios::trunc);
+    if (!file.is_open()) return false;
+    file.write(content.data(), static_cast<std::streamsize>(content.size()));
+    return !file.fail();
+}
+
+std::vector<std::string> ListDirectories(const std::string& path) {
+    std::vector<std::string> directories;
+    if (path.empty()) return directories;
+
+    std::string pattern = path;
+    if (pattern.back() != '\\' && pattern.back() != '/') pattern += '\\';
+    pattern += '*';
+
+    WIN32_FIND_DATAA data{};
+    HANDLE search = FindFirstFileA(pattern.c_str(), &data);
+    if (search == INVALID_HANDLE_VALUE) return directories;
+
+    do {
+        if ((data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0) continue;
+        const std::string name = data.cFileName;
+        if (name != "." && name != "..") directories.push_back(name);
+    } while (FindNextFileA(search, &data));
+    FindClose(search);
+    return directories;
+}
+
+bool ReadModuleResource(int resourceId, std::string& output) {
+    output.clear();
+    if (resourceId <= 0) return false;
+
+    HMODULE module = nullptr;
+    if (!GetModuleHandleExA(
+            GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+            reinterpret_cast<LPCSTR>(&ReadModuleResource),
+            &module) || !module) {
+        return false;
+    }
+
+    HRSRC resource = FindResourceA(module, MAKEINTRESOURCEA(resourceId), RT_RCDATA);
+    if (!resource) return false;
+    HGLOBAL loaded = LoadResource(module, resource);
+    if (!loaded) return false;
+    const DWORD size = SizeofResource(module, resource);
+    const void* data = LockResource(loaded);
+    if (!data || size == 0) return false;
+    output.assign(static_cast<const char*>(data), size);
+    return true;
 }
 
 } // namespace XBase::Platform

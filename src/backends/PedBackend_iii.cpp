@@ -8,9 +8,69 @@
 #include "CRadar.h"
 #include "extensions/ScriptCommands.h"
 #include "plugin.h"
+#include "Events.h"
+#include "CMatrix.h"
+#include "CCutsceneMgr.h"
+#include "CTimer.h"
+#include "CMenuManager.h"
+#include <XBase/Core.h>
 
 namespace XBase::Detail::PedBackend {
-namespace { CPed* AsPed(void* ped) { return static_cast<CPed*>(ped); } }
+namespace {
+CPed* AsPed(void* ped) { return static_cast<CPed*>(ped); }
+using PedPreRenderEvent = plugin::CdeclEvent<plugin::AddressList<0x4CFE12, plugin::H_CALL>, plugin::PRIORITY_AFTER,
+    plugin::ArgPickN<CPed*, 0>, void(CPed*)>;
+
+PedPreRenderEvent s_onPreRender;
+bool s_bigHead = false;
+bool s_hookInstalled = false;
+
+bool IsRenderUnsafe() {
+    return !Core::IsWorldReady()
+        || CCutsceneMgr::ms_cutsceneProcessing
+        || CCutsceneMgr::ms_running
+        || (CCutsceneMgr::ms_cutsceneLoadStatus != 0 && !CCutsceneMgr::ms_loaded)
+        || CStreaming::ms_bLoadingBigModel
+        || CTimer::m_CodePause
+        || FrontEndMenuManager.m_bMenuActive
+        || FrontEndMenuManager.m_bGameNotLoaded;
+}
+
+void ApplyBigHead(CPed* ped) {
+    if (!s_bigHead || !ped || IsRenderUnsafe() || !ped->m_pRwObject || !ped->m_apFrames[2]) return;
+    RwFrame* frame = ped->m_apFrames[2]->m_pFrame;
+    if (!frame) return;
+    RwMatrix* headMatrix = RwFrameGetMatrix(frame);
+    if (!headMatrix) return;
+
+    CMatrix matrix;
+    matrix.m_pAttachMatrix = nullptr;
+    matrix.Attach(headMatrix, false);
+    matrix.SetScale(3.0f);
+    matrix.pos.x = 0.4f;
+    matrix.pos.y = 0.0f;
+    matrix.pos.z = 0.0f;
+    matrix.UpdateRW();
+}
+}
+
+void Init() {
+    if (s_hookInstalled) return;
+    s_onPreRender += ApplyBigHead;
+    s_hookInstalled = true;
+}
+
+void Shutdown() {
+    if (s_hookInstalled) {
+        s_onPreRender -= ApplyBigHead;
+        s_hookInstalled = false;
+    }
+    s_bigHead = false;
+}
+
+void SetBodyAppearance(bool bigHead, bool) {
+    s_bigHead = bigHead;
+}
 
 void* GetPlayer() { return FindPlayerPed(); }
 bool IsPlayer(void* ped) { return ped && ped == FindPlayerPed(); }

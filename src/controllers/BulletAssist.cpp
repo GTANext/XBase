@@ -1,80 +1,52 @@
 #include <XBase/BulletAssist.h>
 #include <XBase/Core.h>
 #include <XBase/Ped.h>
-#include <XBase/Types.h>
-#include "plugin.h"
-#include "CPlayerPed.h"
-#include "CPed.h"
-#include "CPools.h"
-#include "CWorld.h"
-#include "CCamera.h"
-#include "CWeapon.h"
-#include "CRGBA.h"
-#include "CSprite2d.h"
-#include "RenderWare.h"
+#include "../backends/BulletAssistBackend.h"
 
 namespace XBase::BulletAssist {
+namespace {
+Config s_config;
+bool s_initialized = false;
+}
 
-static bool s_enabled = false;
-static bool s_aimAtNearest = false;
-static CPed* s_target = nullptr;
+void SetConfig(const Config& config) {
+    s_config = config;
+    if (s_config.lockRange < 10.0f) s_config.lockRange = 10.0f;
+    if (s_config.maxTargets < 1) s_config.maxTargets = 1;
+    if (s_config.maxTargets > 16) s_config.maxTargets = 16;
+}
+
+Config GetConfig() {
+    return s_config;
+}
 
 void Init() {
-    s_enabled = true;
-    s_aimAtNearest = true;
+    if (s_initialized) return;
+    s_initialized = Detail::BulletAssistBackend::Init();
+}
+
+bool IsInitialized() {
+    return s_initialized;
 }
 
 void Process() {
-    if (!Core::IsWorldReady() || !s_enabled) {
-        s_target = nullptr;
-        return;
-    }
-
-    CPlayerPed* player = FindPlayerPed();
-    if (!player) { s_target = nullptr; return; }
-
-    s_target = player->m_pPlayerTargettedPed;
-
-    if (s_target && CPools::GetPedRef(s_target) == -1) {
-        s_target = nullptr;
-    }
-    if (!s_aimAtNearest) return;
-    if (s_target) return;
-
-    CPed* nearest = nullptr;
-    float nearestDist = 50.0f;
-    CVector ppos = player->GetPosition();
-    for (CPed* p : CPools::ms_pPedPool) {
-        if (!p || p == player || p->m_fHealth <= 0.0f) continue;
-        CVector d = p->GetPosition() - ppos;
-        float dist = d.Magnitude();
-        if (dist < nearestDist) {
-            nearest = p;
-            nearestDist = dist;
-        }
-    }
-    s_target = nearest;
+    if (!s_initialized || !Core::IsWorldReady()) return;
+    Detail::BulletAssistBackend::Process(s_config);
 }
 
 void Shutdown() {
-    s_target = nullptr;
-    s_enabled = false;
-    s_aimAtNearest = false;
+    if (s_initialized) Detail::BulletAssistBackend::Shutdown();
+    s_initialized = false;
+    s_config = {};
 }
 
 void Draw() {
-    if (!s_target || !Core::IsWorldReady()) return;
-
-    float cx = static_cast<float>(RsGlobal.maximumWidth) * 0.5f;
-    float cy = static_cast<float>(RsGlobal.maximumHeight) * 0.5f;
-
-    CRGBA red(255, 50, 50, 180);
-    CSprite2d::DrawRect(CRect(cx - 10.0f, cy - 1.0f, cx + 10.0f, cy + 1.0f), red);
-    CSprite2d::DrawRect(CRect(cx - 1.0f, cy - 10.0f, cx + 1.0f, cy + 10.0f), red);
+    if (!s_initialized || !Core::IsWorldReady()) return;
+    Detail::BulletAssistBackend::Draw(s_config);
 }
 
 bool ShouldSuppressPedFire(PedId ped) {
-    return static_cast<bool>(ped) && XBase::Ped::GetNoFire();
+    return Detail::BulletAssistBackend::ShouldSuppressPedFire(ped, Ped::GetNoFire());
 }
 
 } // namespace XBase::BulletAssist

@@ -6,6 +6,7 @@
 #include <imgui.h>
 
 #include <cstdio>
+#include <cmath>
 #include <cstring>
 #include <string>
 #include <unordered_map>
@@ -14,6 +15,30 @@
 
 namespace XBase::UI {
 namespace {
+
+ImVec4 ToImVec4(Color color) {
+    return ImVec4(
+        static_cast<float>(color.r) / 255.0f,
+        static_cast<float>(color.g) / 255.0f,
+        static_cast<float>(color.b) / 255.0f,
+        static_cast<float>(color.a) / 255.0f);
+}
+
+ImVec4 ToImVec4(ColorF color) {
+    return ImVec4(color.r, color.g, color.b, color.a);
+}
+
+ColorF ToColorF(Color color) {
+    return ColorF(
+        static_cast<float>(color.r) / 255.0f,
+        static_cast<float>(color.g) / 255.0f,
+        static_cast<float>(color.b) / 255.0f,
+        static_cast<float>(color.a) / 255.0f);
+}
+
+ImU32 ToImGuiColor(const ImVec4& color) {
+    return ImGui::ColorConvertFloat4ToU32(color);
+}
 
 struct WindowEntry {
     std::string name;
@@ -739,7 +764,50 @@ void Tooltip(const char* text) {
     ImGui::EndTooltip();
 }
 
+void HelpMarker(const char* desc, bool* hold) {
+    if (!desc) return;
+    ImGui::SameLine();
+    ImGui::TextDisabled("(?)");
+    if (hold) {
+        *hold = ImGui::IsMouseDown(ImGuiMouseButton_Left);
+    }
+    if (ImGui::IsItemHovered()) {
+        ImGui::BeginTooltip();
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+        ImGui::TextUnformatted(desc);
+        ImGui::PopTextWrapPos();
+        ImGui::EndTooltip();
+    }
+}
+
 bool Button(const char* label, Vec2 size) { return ImGui::Button(label, ImVec2(size.x, size.y)); }
+
+bool StyledButton(const char* label, Vec2 size) {
+    ImGui::PushStyleColor(ImGuiCol_Button, ToImVec4(Theme::GetColors().primary));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ToImVec4(Theme::GetColors().primary));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ToImVec4(Theme::GetColors().accent));
+    bool result = ImGui::Button(label, ImVec2(size.x, size.y));
+    ImGui::PopStyleColor(3);
+    return result;
+}
+
+void BeginGroupBox(const char* label, Vec2 size) {
+    ImGui::BeginGroup();
+    ImGui::BeginChild(label, ImVec2(size.x, size.y), true,
+                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove |
+                      ImGuiWindowFlags_NoBackground);
+}
+
+void EndGroupBox() {
+    ImGui::EndChild();
+    ImGui::SameLine();
+    ImVec2 cursorPos = ImGui::GetCursorScreenPos();
+    cursorPos.y += ImGui::GetFontSize();
+    ImGui::SetCursorScreenPos(cursorPos);
+    ImGui::Separator();
+    ImGui::EndGroup();
+}
+
 bool Checkbox(const char* label, bool& value) { return ImGui::Checkbox(label, &value); }
 bool Choice(const char* label, int& selectedValue, int value) {
     return ImGui::RadioButton(label ? label : "", &selectedValue, value);
@@ -821,6 +889,35 @@ void CircleFilled(Vec2 center, float radius, Color color) {
 void Text(Vec2 position, Color color, const char* text) {
     ImGui::GetWindowDrawList()->AddText(ImVec2(position.x, position.y), ToImGuiColor(color), text ? text : "");
 }
+
+void Arc(Vec2 center, float radius, float startAngle, float endAngle, Color color, float thickness) {
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    ImU32 imColor = ToImGuiColor(color);
+    int numSegments = static_cast<int>((endAngle - startAngle) * radius * 0.5f);
+    if (numSegments < 12) numSegments = 12;
+    if (numSegments > 64) numSegments = 64;
+    float angleStep = (endAngle - startAngle) / numSegments;
+    float angle = startAngle;
+    Vec2 prev = {center.x + cosf(angle) * radius, center.y + sinf(angle) * radius};
+    for (int i = 0; i < numSegments; ++i) {
+        angle += angleStep;
+        Vec2 curr = {center.x + cosf(angle) * radius, center.y + sinf(angle) * radius};
+        drawList->AddLine(ImVec2(prev.x, prev.y), ImVec2(curr.x, curr.y), imColor, thickness);
+        prev = curr;
+    }
+}
+
+void Polyline(const Vec2* points, std::size_t count, Color color, float thickness) {
+    if (!points || count < 2) return;
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    ImU32 imColor = ToImGuiColor(color);
+    std::vector<ImVec2> verts;
+    verts.reserve(count);
+    for (std::size_t i = 0; i < count; ++i) {
+        verts.push_back(ImVec2(points[i].x, points[i].y));
+    }
+    drawList->AddPolyline(verts.data(), static_cast<int>(count), imColor, 0, thickness);
+}
 } // namespace Canvas
 
 void SameLine() { ImGui::SameLine(); }
@@ -862,6 +959,78 @@ bool RenderTabBar(float height) {
 
 void EndTabBar() {
     g_tabItems.clear();
+}
+
+struct ActiveNotification {
+    std::string message;
+    float duration;
+    float elapsed;
+    Color color;
+};
+
+static std::list<ActiveNotification> s_notifications;
+
+void Notify(NotificationSpec spec) {
+    if (!spec.message || spec.message[0] == '\0') return;
+    s_notifications.push_back({spec.message, spec.duration, 0.0f, spec.color});
+}
+
+void RenderNotifications(Vec2 screenPosition) {
+    if (s_notifications.empty()) return;
+    float frameRate = GetFrameRate();
+    float dt = 1.0f / (frameRate > 0.0f ? frameRate : 60.0f);
+
+    for (auto it = s_notifications.begin(); it != s_notifications.end();) {
+        it->elapsed += dt;
+        if (it->elapsed >= it->duration) {
+            it = s_notifications.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    if (s_notifications.empty()) return;
+
+    ImDrawList* drawList = ImGui::GetBackgroundDrawList();
+    Vec2 basePos = screenPosition;
+
+    float posY = basePos.y;
+    float toastHeight = 36.0f;
+    float padding = 8.0f;
+    float margin = 10.0f;
+
+    for (auto it = s_notifications.rbegin(); it != s_notifications.rend(); ++it) {
+        float progress = 1.0f - (it->elapsed / it->duration);
+        float alpha = ImSaturate(progress * 1.5f);
+        if (alpha < 0.05f) alpha = 0.05f;
+
+        Color toastColor = it->color;
+        ColorF toastCf = ToColorF(toastColor);
+        ColorF bgCf(0.10f, 0.10f, 0.12f, 0.92f * alpha);
+        ColorF textCf(1.0f, 1.0f, 1.0f, 1.0f * alpha);
+
+        Vec2 size = {320.0f, toastHeight};
+        Vec2 min = {basePos.x + margin, posY + margin};
+        Vec2 max = {min.x + size.x, min.y + size.y};
+
+        drawList->AddRectFilled(ImVec2(min.x, min.y), ImVec2(max.x, max.y),
+                                ToImGuiColor(bgCf), 6.0f, 0, 0.0f);
+        drawList->AddRect(ImVec2(min.x, min.y), ImVec2(max.x, max.y),
+                          ToImGuiColor(toastCf), 6.0f, 0, 1.0f * alpha);
+
+        std::string label = std::string(it->message);
+        ImVec2 textSize = ImGui::CalcTextSize(label.c_str());
+        drawList->AddText(ImVec2(min.x + padding, min.y + (size.y - textSize.y) * 0.5f),
+                          ToImGuiColor(textCf), label.c_str());
+
+        float barWidth = size.x * progress;
+        if (barWidth > 0.0f) {
+            drawList->AddRectFilled(ImVec2(min.x, max.y),
+                                    ImVec2(min.x + barWidth, max.y + 3.0f),
+                                    ToImGuiColor(toastCf), 0.0f, 0, 1.0f * alpha);
+        }
+
+        posY += size.y + padding;
+    }
 }
 
 } // namespace XBase::UI

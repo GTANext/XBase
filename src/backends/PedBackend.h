@@ -5,6 +5,9 @@
 
 namespace XBase::Detail::PedBackend {
 
+void Init();
+void Shutdown();
+void SetBodyAppearance(bool bigHead, bool thinBody);
 void* GetPlayer();
 bool IsValid(void* ped);
 int GetId(void* ped);

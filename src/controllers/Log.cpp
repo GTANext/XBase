@@ -3,6 +3,8 @@
 #include <sstream>
 #include <mutex>
 #include <ctime>
+#include <exception>
+#include <cstdlib>
 #include <utility>
 #include <Windows.h>
 
@@ -23,6 +25,10 @@ LogState& State() {
     static LogState s;
     return s;
 }
+
+LPTOP_LEVEL_EXCEPTION_FILTER s_previousExceptionFilter = nullptr;
+std::terminate_handler s_previousTerminateHandler = nullptr;
+bool s_crashHandlersInstalled = false;
 
 std::string Timestamp() {
     std::time_t t = std::time(nullptr);
@@ -82,6 +88,41 @@ void WriteUnlocked(XBase::Log::Level level, const char* message) {
     State().totalCount++;
 }
 
+LONG WINAPI HandleUnhandledException(EXCEPTION_POINTERS* exceptionInfo) {
+    if (State().initialized && exceptionInfo && exceptionInfo->ExceptionRecord) {
+        std::ostringstream message;
+        message << "Unhandled exception code=0x" << std::hex << std::uppercase
+                << exceptionInfo->ExceptionRecord->ExceptionCode
+                << " address=0x"
+                << reinterpret_cast<std::uintptr_t>(exceptionInfo->ExceptionRecord->ExceptionAddress)
+                << " thread=" << std::dec << GetCurrentThreadId();
+        std::lock_guard<std::mutex> lock(State().mtx);
+        WriteUnlocked(XBase::Log::Level::Error, message.str().c_str());
+    }
+    return s_previousExceptionFilter
+        ? s_previousExceptionFilter(exceptionInfo)
+        : EXCEPTION_CONTINUE_SEARCH;
+}
+
+void HandleTerminate() {
+    {
+        std::lock_guard<std::mutex> lock(State().mtx);
+        WriteUnlocked(XBase::Log::Level::Error, "std::terminate invoked");
+    }
+    if (s_previousTerminateHandler) {
+        s_previousTerminateHandler();
+        return;
+    }
+    std::abort();
+}
+
+void InstallCrashHandlers() {
+    if (s_crashHandlersInstalled) return;
+    s_previousExceptionFilter = SetUnhandledExceptionFilter(HandleUnhandledException);
+    s_previousTerminateHandler = std::set_terminate(HandleTerminate);
+    s_crashHandlersInstalled = true;
+}
+
 } // namespace
 
 namespace XBase::Log {
@@ -95,6 +136,7 @@ void Init(const char* filePath) {
 
     State().file.open(State().filePath, std::ios::app);
     State().initialized = true;
+    InstallCrashHandlers();
     WriteUnlocked(Level::Info, "XBase Log initialized");
 }
 
@@ -102,6 +144,13 @@ void Shutdown() {
     std::lock_guard<std::mutex> lock(State().mtx);
     if (!State().initialized) return;
     WriteUnlocked(Level::Info, "XBase Log shutdown");
+    if (s_crashHandlersInstalled) {
+        SetUnhandledExceptionFilter(s_previousExceptionFilter);
+        std::set_terminate(s_previousTerminateHandler);
+        s_previousExceptionFilter = nullptr;
+        s_previousTerminateHandler = nullptr;
+        s_crashHandlersInstalled = false;
+    }
     State().file.close();
     State().initialized = false;
 }

@@ -1,6 +1,7 @@
 #include <XBase/Ped.h>
 #include <XBase/Core.h>
-#include "PedBackend.h"
+#include <XBase/Capabilities.h>
+#include "../backends/PedBackend.h"
 #include <deque>
 
 namespace XBase::Ped {
@@ -17,6 +18,8 @@ bool s_gangsControl = false;
 bool s_gangsEverywhere = false;
 bool s_noProstitutes = false;
 bool s_nastyLimbs = false;
+bool s_bigHead = false;
+bool s_thinBody = false;
 bool s_gangWars = false;
 bool s_limitPolice = false;
 bool s_limitGangs = false;
@@ -34,10 +37,12 @@ void ApplyGlobalOptions() {
     Detail::PedBackend::SetGangsEverywhere(s_gangsEverywhere);
     Detail::PedBackend::SetNoProstitutes(s_noProstitutes);
     Detail::PedBackend::SetNastyLimbs(s_nastyLimbs);
+    Detail::PedBackend::SetBodyAppearance(s_bigHead, s_thinBody);
     Detail::PedBackend::SetGangWarsActive(s_gangWars);
 }
 }
 
+void Init() { Detail::PedBackend::Init(); }
 void Process() {
     if (!Core::IsWorldReady()) return;
     ApplyGlobalOptions();
@@ -48,6 +53,8 @@ void NotifyGameInit() {
 }
 
 void Shutdown() {
+    Detail::PedBackend::SetBodyAppearance(false, false);
+    Detail::PedBackend::Shutdown();
     s_lastSpawned = nullptr;
     s_noFire = false;
     s_limitPolice = false;
@@ -64,9 +71,13 @@ void Shutdown() {
     s_gangsEverywhere = false;
     s_noProstitutes = false;
     s_nastyLimbs = false;
+    s_bigHead = false;
+    s_thinBody = false;
     s_gangWars = false;
 }
-void SetNoFire(bool enable) { s_noFire = enable; }
+void SetNoFire(bool enable) {
+    s_noFire = HasCapability(FeatureCapability::BulletAssistFireSuppression) && enable;
+}
 bool GetNoFire() { return s_noFire; }
 void SetSpawnLimits(bool limitPolice, bool limitGangs, int maxPolice, int maxGangs) {
     s_limitPolice = limitPolice;
@@ -107,7 +118,9 @@ void DeleteLastSpawned() {
     s_lastSpawned = nullptr;
 }
 #define PED_FLAG(name, field) \
-    void Set##name(bool enable) { field = enable; } \
+    void Set##name(bool enable) { \
+        field = HasCapability(FeatureCapability::PedGlobalStrategies) && enable; \
+    } \
     bool Is##name() { return field; }
 PED_FLAG(ElvisEverywhere, s_elvis)
 PED_FLAG(EveryoneArmed, s_armed)
@@ -119,13 +132,21 @@ PED_FLAG(GangsEverywhere, s_gangsEverywhere)
 PED_FLAG(NoProstitutes, s_noProstitutes)
 PED_FLAG(NastyLimbs, s_nastyLimbs)
 #undef PED_FLAG
-void SetBigHead(bool) {}
-bool IsBigHead() { return false; }
-void SetThinBody(bool) {}
-bool IsThinBody() { return false; }
-void SetPedsRiot(bool enable) { s_riot = enable; }
+void SetBigHead(bool enable) {
+    s_bigHead = HasCapability(FeatureCapability::PedBigHead) && enable;
+}
+bool IsBigHead() { return s_bigHead; }
+void SetThinBody(bool enable) {
+    s_thinBody = HasCapability(FeatureCapability::PedThinBody) && enable;
+}
+bool IsThinBody() { return s_thinBody; }
+void SetPedsRiot(bool enable) {
+    s_riot = HasCapability(FeatureCapability::PedGlobalStrategies) && enable;
+}
 bool IsPedsRiot() { return s_riot; }
-void SetGangWarsActive(bool enable) { s_gangWars = enable; }
+void SetGangWarsActive(bool enable) {
+    s_gangWars = HasCapability(FeatureCapability::PedGlobalStrategies) && enable;
+}
 bool IsGangWarsActive() { return s_gangWars; }
 void StartGangWar(bool offensive) { Detail::PedBackend::StartGangWar(offensive); }
 void EndGangWar() { Detail::PedBackend::EndGangWar(); }

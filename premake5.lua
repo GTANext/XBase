@@ -37,29 +37,39 @@ workspace "XBase"
         "_CRT_NON_CONFORMING_SWPRINTFS",
     }
 
-project "XBaseBootstrap"
-    kind "StaticLib"
-    targetname "XBaseBootstrap"
-    files {
-        "src/Bootstrap.h",
-        "src/Bootstrap.cpp"
-    }
+local function add_entry_target(name, sources)
+    project(name)
+        kind "StaticLib"
+        targetname(name)
+        files(sources)
 
-    filter "configurations:Debug"
-        defines { "DEBUG" }
-        optimize "Off"
-        symbols "On"
-    filter "configurations:Release"
-        defines { "NDEBUG" }
-        optimize "Speed"
-        symbols "Off"
-    filter {}
+        filter "configurations:Debug"
+            defines { "DEBUG" }
+            optimize "Off"
+            symbols "On"
+        filter "configurations:Release"
+            defines { "NDEBUG" }
+            optimize "Speed"
+            symbols "Off"
+        filter {}
+end
+
+add_entry_target("XBaseBootstrap", {
+    "src/Bootstrap.h",
+    "src/Bootstrap.cpp",
+    "src/BootstrapEntry.cpp"
+})
+
+add_entry_target("XBasePayloadEntry", {
+    "src/PayloadEntry.cpp"
+})
 
 local function add_sa_settings()
     if hasPluginSdk then
         defines { "XBASE_WITH_PLUGIN_SDK", "XBASE_BACKEND_SA", "GTASA", "_GTA_", "RW", "IS_PLATFORM_WIN" }
         includedirs {
             "include",
+            "src/backends",
             path.join(pluginSdkDir, "plugin_sa"),
             path.join(pluginSdkDir, "plugin_sa", "game_sa"),
             path.join(pluginSdkDir, "plugin_sa", "game_sa", "enums"),
@@ -81,6 +91,8 @@ local function add_portable_player_target(name, sdkName, gameName, gameDefine, b
         targetname(name)
         files {
             "include/XBase/**.h",
+            "src/backends/BulletAssistBackend.h",
+            "src/backends/BulletAssistBackend_" .. string.lower(sdkName) .. ".cpp",
             "src/backends/PlayerBackend.h",
             "src/backends/PlayerBackend_" .. string.lower(sdkName) .. ".cpp",
             "src/backends/PedBackend.h",
@@ -88,6 +100,7 @@ local function add_portable_player_target(name, sdkName, gameName, gameDefine, b
             "src/backends/VehicleBackend.h",
             "src/backends/VehicleBackend_" .. string.lower(sdkName) .. ".cpp",
             "src/controllers/Capabilities.cpp",
+            "src/controllers/BulletAssist.cpp",
             "src/controllers/Config.cpp",
             "src/controllers/CoreStub.cpp",
             "src/controllers/I18n.cpp",
@@ -162,6 +175,7 @@ project "XBaseSA"
         "src/controllers/Camera.cpp",
         "src/controllers/Cheats.cpp",
         "src/controllers/VehicleEffects.cpp",
+        "src/backends/BulletAssistBackend_sa.cpp",
         "include/imgui/imgui.cpp",
         "include/imgui/imgui_draw.cpp",
         "include/imgui/imgui_tables.cpp",

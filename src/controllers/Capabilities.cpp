@@ -28,6 +28,7 @@ CapabilitySupport GetCapabilitySupport(Capability capability) {
     case Capability::Player:
     case Capability::Ped:
     case Capability::Vehicle:
+    case Capability::BulletAssist:
         return CapabilitySupport::Partial;
     case Capability::Hooks:
     case Capability::Ui:
@@ -63,7 +64,16 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::PlayerAppearance:
     case FeatureCapability::PlayerClothes:
     case FeatureCapability::PlayerStats:
-    case FeatureCapability::PlayerCheats:
+    case FeatureCapability::PlayerSuperJump:
+    case FeatureCapability::PlayerSuperPunch:
+    case FeatureCapability::PlayerUnderwaterBreathing:
+    case FeatureCapability::PlayerCycleJump:
+    case FeatureCapability::PlayerNeverHungry:
+    case FeatureCapability::PlayerFastSprint:
+    case FeatureCapability::PlayerSprintEverywhere:
+    case FeatureCapability::PlayerDrunkEffect:
+    case FeatureCapability::PlayerNeverWanted:
+    case FeatureCapability::PlayerAimSkinChanger:
     case FeatureCapability::PlayerKeepStuff:
     case FeatureCapability::PlayerSaveGame:
     case FeatureCapability::PedBasic:
@@ -71,6 +81,8 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::PedDelete:
     case FeatureCapability::PedAttributes:
     case FeatureCapability::PedClassification:
+    case FeatureCapability::PedBigHead:
+    case FeatureCapability::PedThinBody:
     case FeatureCapability::VehicleBasic:
     case FeatureCapability::VehicleColors:
     case FeatureCapability::VehicleDoors:
@@ -79,12 +91,30 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::VehicleDelete:
     case FeatureCapability::VehicleEvents:
     case FeatureCapability::VehiclePopDoors:
-    case FeatureCapability::VehicleSpecialAttributes:
+    case FeatureCapability::VehicleAlwaysSkidMarks:
+    case FeatureCapability::VehicleDisableParticles:
+    case FeatureCapability::VehicleDriverTargetable:
+    case FeatureCapability::VehicleHeatSeekingTargetable:
+    case FeatureCapability::VehiclePetrolTankWeakPoint:
+    case FeatureCapability::VehicleSirenOrAlarm:
+    case FeatureCapability::VehicleTakeLessDamage:
+    case FeatureCapability::VehicleTrafficDensity:
+    case FeatureCapability::VehicleAutoDrive:
     case FeatureCapability::VehiclePaintjob:
     case FeatureCapability::VehicleUpgrades:
     case FeatureCapability::WorldTime:
     case FeatureCapability::WorldWeather:
     case FeatureCapability::WorldGravity:
+    case FeatureCapability::WorldGameSpeed:
+    case FeatureCapability::WorldFpsLimit:
+    case FeatureCapability::WorldDaysPassed:
+    case FeatureCapability::WorldFreezeTime:
+    case FeatureCapability::WorldFasterClock:
+    case FeatureCapability::WorldDisableReplay:
+    case FeatureCapability::WorldDisableCheats:
+    case FeatureCapability::WorldForbiddenAreaWanted:
+    case FeatureCapability::WorldFreePayNSpray:
+    case FeatureCapability::WorldNoWaterPhysics:
     case FeatureCapability::WeaponBasic:
     case FeatureCapability::WeaponGive:
     case FeatureCapability::WeaponDrop:
@@ -95,12 +125,19 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::TeleportBasic:
     case FeatureCapability::VisualHudRadar:
     case FeatureCapability::VisualFilter:
+    case FeatureCapability::BulletAssistTracking:
+    case FeatureCapability::BulletAssistThroughWalls:
+    case FeatureCapability::BulletAssistPedBounds:
+    case FeatureCapability::BulletAssistVehicleBounds:
         return CapabilitySupport::Supported;
     case FeatureCapability::PedMarkerSpawn:
     case FeatureCapability::PedGlobalStrategies:
     case FeatureCapability::WorldPickups:
     case FeatureCapability::SceneParticle:
     case FeatureCapability::SceneCutscene:
+    case FeatureCapability::BulletAssistPedCollision:
+    case FeatureCapability::BulletAssistPedSkeleton:
+    case FeatureCapability::BulletAssistVehicleCollision:
     case FeatureCapability::BulletAssistFireSuppression:
         return CapabilitySupport::Partial;
     case FeatureCapability::CameraFreecam:
@@ -124,10 +161,18 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::VehicleSpawnSession:
     case FeatureCapability::VehicleDelete:
     case FeatureCapability::VehicleEvents:
+    case FeatureCapability::BulletAssistTracking:
+    case FeatureCapability::BulletAssistThroughWalls:
+    case FeatureCapability::BulletAssistPedBounds:
+    case FeatureCapability::BulletAssistVehicleBounds:
         return CapabilitySupport::Supported;
     case FeatureCapability::PlayerRuntimeEffects:
     case FeatureCapability::VehicleBasic:
     case FeatureCapability::VehicleColors:
+    case FeatureCapability::BulletAssistPedCollision:
+    case FeatureCapability::BulletAssistPedSkeleton:
+    case FeatureCapability::BulletAssistVehicleCollision:
+    case FeatureCapability::BulletAssistFireSuppression:
         return CapabilitySupport::Partial;
     default:
         return CapabilitySupport::Unsupported;
@@ -142,6 +187,7 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::PedDelete:
     case FeatureCapability::PedAttributes:
     case FeatureCapability::PedClassification:
+    case FeatureCapability::PedBigHead:
     case FeatureCapability::VehicleDoors:
     case FeatureCapability::VehicleSpawn:
     case FeatureCapability::VehicleSpawnSession:
