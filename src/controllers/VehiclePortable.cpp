@@ -152,7 +152,7 @@ SpawnResult SpawnEx(unsigned int modelId, const SpawnOptions& options) {
     }
     ++s_spawnWindowCount;
     s_spawnInProgress = true;
-    const bool ok = Detail::VehicleBackend::Spawn(modelId, options.asDriver, options.aircraftInAir);
+    const bool ok = Detail::VehicleBackend::Spawn(modelId, options.asDriver, options.aircraftInAir, options.cleanupPrevious);
     s_spawnInProgress = false;
     if (!ok) {
         result.failure = SpawnFailureReason::BackendRejected;
@@ -166,12 +166,8 @@ SpawnResult SpawnEx(unsigned int modelId, const SpawnOptions& options) {
     if (options.asDriver && current) {
         if (options.cleanupPrevious && s_trackedVehicle && s_trackedVehicle != current &&
             Detail::VehicleBackend::IsValid(s_trackedVehicle)) {
-            if (Detail::VehicleBackend::IsPlayerUsing(s_trackedVehicle) ||
-                !Detail::VehicleBackend::Delete(s_trackedVehicle)) {
-                PushEvent(VehicleEventType::PreviousVehicleCleanupSkipped, SpawnFailureReason::None, modelId);
-            } else {
-                PushEvent(VehicleEventType::PreviousVehicleCleaned, SpawnFailureReason::None, modelId);
-            }
+            Detail::VehicleBackend::MarkNoLongerNeeded(s_trackedVehicle);
+            PushEvent(VehicleEventType::PreviousVehicleCleaned, SpawnFailureReason::None, modelId);
         }
         s_trackedVehicle = current;
     }
@@ -282,7 +278,7 @@ void OpenDoor(int doorIndex) { Detail::VehicleBackend::OpenDoor(Detail::VehicleB
 void PopDoor(int) {}
 void BlowUpAll() { Detail::VehicleBackend::BlowUpAll(); }
 bool Spawn(unsigned int modelId, const SpawnOptions& options) {
-    return Detail::VehicleBackend::Spawn(modelId, options.asDriver, options.aircraftInAir);
+    return Detail::VehicleBackend::Spawn(modelId, options.asDriver, options.aircraftInAir, options.cleanupPrevious);
 }
 bool Spawn(unsigned int modelId) {
     return Spawn(modelId, SpawnOptions{});

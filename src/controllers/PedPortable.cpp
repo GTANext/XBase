@@ -85,6 +85,8 @@ void SetSpawnLimits(bool limitPolice, bool limitGangs, int maxPolice, int maxGan
     s_maxPolice = maxPolice < 0 ? 0 : maxPolice;
     s_maxGangs = maxGangs < 0 ? 0 : maxGangs;
 }
+void SetSmokingEffect(bool) {}
+void SetFliesEffect(bool) {}
 PedId GetLastSpawnedId() {
     const int ref = Detail::PedBackend::GetId(s_lastSpawned);
     return PedId{ref >= 0 ? static_cast<std::uint32_t>(ref) + 1u : 0u};

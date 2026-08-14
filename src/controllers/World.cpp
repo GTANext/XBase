@@ -8,7 +8,9 @@
 #include "CPickups.h"
 #include "CStreaming.h"
 #include "CCarCtrl.h"
+#include "CPools.h"
 #include "extensions/ScriptCommands.h"
+#include <cstdlib>
 #include <ctime>
 
 namespace {
@@ -22,6 +24,8 @@ int s_lockedHour = 0;
 int s_lockedMinute = 0;
 bool s_fasterClock = false;
 bool s_noWaterPhysics = false;
+bool s_solidWater = false;
+int s_solidWaterObj = 0;
 bool s_hasClockIntervalSnapshot = false;
 unsigned int s_savedClockInterval = 1000;
 bool s_hasFreezeFlagSnapshot = false;
@@ -62,6 +66,49 @@ void RestoreClockState() {
     RestoreFreezeFlag();
 }
 
+void ProcessSolidWater() {
+    auto destroySolidWater = []() {
+        if (!s_solidWaterObj) return;
+        if (plugin::Command<plugin::Commands::DOES_OBJECT_EXIST>(s_solidWaterObj)) {
+            plugin::Command<plugin::Commands::DELETE_OBJECT>(s_solidWaterObj);
+        }
+        s_solidWaterObj = 0;
+    };
+
+    CPlayerPed* player = FindPlayerPed();
+    if (!s_solidWater || !player) {
+        destroySolidWater();
+        return;
+    }
+
+    CVector pos = player->GetPosition();
+    float waterHeight = 0.0f;
+    plugin::Command<plugin::Commands::GET_WATER_HEIGHT_AT_COORDS>(pos.x, pos.y, false, &waterHeight);
+
+    const int hplayer = CPools::GetPedRef(player);
+    if (!plugin::Command<plugin::Commands::IS_CHAR_IN_ANY_BOAT>(hplayer) && waterHeight != -1000.0f && pos.z > waterHeight) {
+        if (s_solidWaterObj == 0) {
+            CStreaming::RequestModel(3095, PRIORITY_REQUEST);
+            CStreaming::LoadAllRequestedModels(false);
+            plugin::Command<plugin::Commands::CREATE_OBJECT>(3095, pos.x, pos.y, waterHeight, &s_solidWaterObj);
+            if (!s_solidWaterObj || !plugin::Command<plugin::Commands::DOES_OBJECT_EXIST>(s_solidWaterObj)) {
+                s_solidWaterObj = 0;
+                return;
+            }
+            plugin::Command<plugin::Commands::SET_OBJECT_VISIBLE>(s_solidWaterObj, false);
+            if (pos.z < waterHeight + 1.0f) {
+                player->SetPosn(pos.x, pos.y, waterHeight + 1.0f);
+            }
+        } else if (!plugin::Command<plugin::Commands::DOES_OBJECT_EXIST>(s_solidWaterObj)) {
+            s_solidWaterObj = 0;
+        } else {
+            plugin::Command<plugin::Commands::SET_OBJECT_COORDINATES>(s_solidWaterObj, pos.x, pos.y, waterHeight);
+        }
+    } else {
+        destroySolidWater();
+    }
+}
+
 } // namespace
 
 namespace XBase::World {
@@ -72,6 +119,8 @@ void NotifyGameInit() {
     s_lockedTime = false;
     s_fasterClock = false;
     s_noWaterPhysics = false;
+    s_solidWater = false;
+    s_solidWaterObj = 0;
     s_hasClockIntervalSnapshot = false;
     s_hasFreezeFlagSnapshot = false;
     s_hasUnderWaternessSnapshot = false;
@@ -83,6 +132,8 @@ void Shutdown() {
     s_lockedTime = false;
     s_fasterClock = false;
     s_noWaterPhysics = false;
+    s_solidWater = false;
+    ProcessSolidWater();
     RestoreClockState();
     if (s_hasUnderWaternessSnapshot) {
         CWeather::UnderWaterness = s_savedUnderWaterness;
@@ -106,6 +157,8 @@ void Process() {
     if (s_noWaterPhysics) {
         CWeather::UnderWaterness = 0.0f;
     }
+
+    ProcessSolidWater();
 }
 
 int GetWeather() { return static_cast<int>(CWeather::OldWeatherType); }
@@ -288,6 +341,14 @@ void SetNoWaterPhysics(bool enable) {
 
 bool IsNoWaterPhysics() {
     return s_noWaterPhysics;
+}
+
+void SetSolidWater(bool enable) {
+    if (s_solidWater == enable) return;
+    s_solidWater = enable;
+    if (!enable) {
+        ProcessSolidWater();
+    }
 }
 
 void DestroyAllVehicles() {

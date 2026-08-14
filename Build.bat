@@ -169,6 +169,21 @@ if /i "%CONFIG%"=="Release" if exist "..\XMenu\" (
             goto fail
         )
     )
+    for %%P in (Plugin Plugin_VC Plugin_III) do (
+        set "P_STAGE_NAME=%%P"
+        set "P_SOURCE=%%P"
+        if /i "%%P"=="Plugin_VC" set "P_STAGE_NAME=PluginVC"
+        if /i "%%P"=="Plugin_III" set "P_STAGE_NAME=PluginIII"
+        if not exist "%PLUGIN_SDK_DIR%\output\lib\!P_SOURCE!.lib" (
+            echo [Error] Missing plugin-sdk game symbol library: !P_SOURCE!.lib
+            goto fail
+        )
+        copy /Y "%PLUGIN_SDK_DIR%\output\lib\!P_SOURCE!.lib" "..\XMenu\lib\!P_STAGE_NAME!.lib" >nul
+        if errorlevel 1 (
+            echo [Error] Failed to stage !P_STAGE_NAME!.lib into XMenu.
+            goto fail
+        )
+    )
     echo [Info] Staged Release SDK to ..\XMenu\include\XBase and ..\XMenu\lib
 )
 

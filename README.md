@@ -118,6 +118,95 @@ linkoptions { "/WHOLEARCHIVE:XBaseBootstrap.lib" }
 - 不要以 Release 库构建 Debug XMenu，也不要混用 x86/x64 或不同版本的公共头和 `.lib`。
 - 更新 XBase 后必须重新构建并同步头文件与库；二者必须来自同一源码版本。
 
+## 能力矩阵
+
+各游戏后端实现的 `Capability` / `FeatureCapability` 支持级别，与 `src/controllers/Capabilities.cpp` 保持一致。
+
+图例：✅ Supported（可用）　◐ Partial（部分可用）　✖ Unsupported（未实现）
+
+### 粗粒度 Capability
+
+| Capability | SA | VC | III |
+| --- | :-: | :-: | :-: |
+| Player | ✅ | ◐ | ◐ |
+| Ped | ◐ | ◐ | ◐ |
+| Vehicle | ✅ | ◐ | ◐ |
+| Weapon | ✅ | ◐ | ◐ |
+| World | ◐ | ◐ | ◐ |
+| Visual | ✅ | ◐ | ◐ |
+| Teleport | ✅ | ◐ | ◐ |
+| Scene | ◐ | ✖ | ✖ |
+| Camera | ✅ | ✖ | ✖ |
+| Cheats | ✅ | ✖ | ✖ |
+| VehicleEffects | ✅ | ✖ | ✖ |
+| BulletAssist | ◐ | ◐ | ✖ |
+| Hooks | ✅ | ✅ | ✅ |
+| Ui | ✅ | ✅ | ✅ |
+| Overlay | ◐ | ✖ | ✖ |
+
+### FeatureCapability
+
+#### 玩家 / 行人
+
+| Feature | SA | VC | III |
+| --- | :-: | :-: | :-: |
+| PlayerBasicState | ✅ | ✅ | ✅ |
+| PlayerRuntimeEffects | ✅ | ◐ | ◐ |
+| PlayerProofs | ✅ | ✅ | ✅ |
+| PlayerMovement | ✅ | ✅ | ✅ |
+| PlayerAppearance / Clothes / Stats / SuperJump / SuperPunch / UnderwaterBreathing / CycleJump / NeverHungry / FastSprint / SprintEverywhere / DrunkEffect / NeverWanted / AimSkinChanger / KeepStuff / SaveGame | ✅ | ✖ | ✖ |
+| PedBasic / Spawn / Delete / Attributes / Classification | ✅ | ✅ | ✅ |
+| PedBigHead | ✅ | ✖ | ✅ |
+| PedThinBody / SmokeFlies | ✅ | ✖ | ✖ |
+| PedMarkerSpawn / GlobalStrategies | ◐ | ✖ | ✖ |
+
+#### 载具
+
+| Feature | SA | VC | III |
+| --- | :-: | :-: | :-: |
+| VehicleBasic | ✅ | ◐ | ◐ |
+| VehicleColors | ✅ | ◐ | ◐ |
+| VehicleDoors / Spawn / SpawnSession / Delete / Events | ✅ | ✅ | ✅ |
+| VehiclePopDoors / AlwaysSkidMarks / DisableParticles / DriverTargetable / HeatSeekingTargetable / PetrolTankWeakPoint / SirenOrAlarm / TakeLessDamage / TrafficDensity / AutoDrive / Paintjob / Upgrades / Cheats | ✅ | ✖ | ✖ |
+
+#### 世界
+
+| Feature | SA | VC | III |
+| --- | :-: | :-: | :-: |
+| WorldTime / Weather / Gravity / GameSpeed / FpsLimit / DaysPassed / FreezeTime / FasterClock / DisableReplay / DisableCheats | ✅ | ✅ | ✅ |
+| WorldPickups | ◐ | ◐ | ◐ |
+| WorldForbiddenAreaWanted / FreePayNSpray / NoWaterPhysics / SolidWater | ✅ | ✖ | ✖ |
+
+#### 武器 / 传送 / 视觉
+
+| Feature | SA | VC | III |
+| --- | :-: | :-: | :-: |
+| WeaponBasic / Give / Drop | ✅ | ✅ | ✅ |
+| WeaponRuntimeEffects / StatOverrides | ✅ | ✅ | ✅ |
+| WeaponSkills | ✅ | ✖ | ✖ |
+| TeleportBasic | ✅ | ✅ | ✅ |
+| VisualHudRadar / VisualFilter | ✅ | ✅ | ✅ |
+| VisualRadarOptions | ✅ | ✖ | ✖ |
+
+#### 场景 / 相机 / 作弊 / 载具特效
+
+| Feature | SA | VC | III |
+| --- | :-: | :-: | :-: |
+| SceneAnimation / SceneMission | ✅ | ✖ | ✖ |
+| SceneParticle / SceneCutscene | ◐ | ✖ | ✖ |
+| CameraFreecam / CameraTopDown | ✅ | ✖ | ✖ |
+| CheatsRandom | ✅ | ✖ | ✖ |
+| VehicleEffectsNeon | ✅ | ✖ | ✖ |
+
+#### BulletAssist
+
+| Feature | SA | VC | III |
+| --- | :-: | :-: | :-: |
+| BulletAssistTracking / ThroughWalls / PedBounds / VehicleBounds | ✅ | ✅ | ✖ |
+| BulletAssistPedCollision / PedSkeleton / VehicleCollision / FireSuppression | ◐ | ◐ | ✖ |
+
+> 说明：以上矩阵由 `Capabilities.cpp` 静态声明，运行时以实际后端行为为准；`Partial` 表示页面/接口可用，但部分动作受限（如 VC/III 的 `WorldPickups` 走脚本指令路径、`PlayerRuntimeEffects` 仅覆盖部分开关）。
+
 ## 当前说明
 
 XBase 已提供本地 SDK 的构建与同步流程。XMenu 源码和构建脚本不再依赖 XBase 私有源码路径。

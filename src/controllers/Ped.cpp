@@ -18,6 +18,7 @@
 #include "CTheZones.h"
 #include "CRadar.h"
 #include "Events.h"
+#include "CTimer.h"
 #include "common.h"
 #include "extensions/ScriptCommands.h"
 #include <cmath>
@@ -33,11 +34,16 @@ bool IsPedInPool(CPed* ped) {
 }
 
 bool s_noFireEnabled = false;
+bool s_smokingEffect = false;
+bool s_fliesEffect = false;
+unsigned int s_lastSmokeTick = 0;
+unsigned int s_lastFliesTick = 0;
 
 bool s_elvisEverywhere = false;
 bool s_everyoneArmed = false;
 bool s_pedsMayhem = false;
 bool s_pedsAtkRocket = false;
+bool s_pedsRiot = false;
 bool s_slutMagnet = false;
 bool s_bigHead = false;
 bool s_thinBody = false;
@@ -98,6 +104,7 @@ void Process() {
     *CheatAddr(22) = s_everyoneArmed;
     *CheatAddr(107) = s_pedsMayhem;
     *CheatAddr(51) = s_pedsAtkRocket;
+    *CheatAddr(69) = s_pedsRiot;
     *CheatAddr(15) = s_slutMagnet;
     *reinterpret_cast<bool*>(0xB7CEE4) = s_bigHead;
     *reinterpret_cast<bool*>(0xB7CEE5) = s_thinBody;
@@ -106,6 +113,28 @@ void Process() {
     *CheatAddr(80) = s_gangsControl;
     *CheatAddr(96) = s_gangsEverywhere;
     *CheatAddr(93) = s_gangWarsActive;
+
+    CPlayerPed* player = FindPlayerPed();
+    if (player) {
+        const unsigned int now = CTimer::m_snTimeInMilliseconds;
+        if (s_smokingEffect && now - s_lastSmokeTick >= 200) {
+            s_lastSmokeTick = now;
+            const CVector pos = player->GetPosition();
+            int fx = 0;
+            plugin::Command<plugin::Commands::CREATE_FX_SYSTEM>("cigarette_smoke", pos.x, pos.y, pos.z + 0.7f, 0, &fx);
+            plugin::Command<plugin::Commands::PLAY_AND_KILL_FX_SYSTEM>(fx);
+        }
+        if (s_fliesEffect && now - s_lastFliesTick >= 500) {
+            s_lastFliesTick = now;
+            const CVector pos = player->GetPosition();
+            const float rx = static_cast<float>((rand() % 200 - 100)) / 100.0f;
+            const float ry = static_cast<float>((rand() % 200 - 100)) / 100.0f;
+            const float rz = static_cast<float>((rand() % 100)) / 100.0f + 1.0f;
+            int fx = 0;
+            plugin::Command<plugin::Commands::CREATE_FX_SYSTEM>("insects", pos.x + rx, pos.y + ry, pos.z + rz, 0, &fx);
+            plugin::Command<plugin::Commands::PLAY_AND_KILL_FX_SYSTEM>(fx);
+        }
+    }
 }
 
 void NotifyGameInit() {
@@ -118,10 +147,13 @@ void Shutdown() {
         s_renderHookInstalled = false;
     }
     s_noFireEnabled = false;
+    s_smokingEffect = false;
+    s_fliesEffect = false;
     s_elvisEverywhere = false;
     s_everyoneArmed = false;
     s_pedsMayhem = false;
     s_pedsAtkRocket = false;
+    s_pedsRiot = false;
     s_slutMagnet = false;
     s_bigHead = false;
     s_thinBody = false;
@@ -139,6 +171,16 @@ void SetNoFire(bool enable) {
 
 bool GetNoFire() {
     return s_noFireEnabled;
+}
+
+void SetSmokingEffect(bool enable) {
+    s_smokingEffect = enable;
+    if (enable) s_lastSmokeTick = 0;
+}
+
+void SetFliesEffect(bool enable) {
+    s_fliesEffect = enable;
+    if (enable) s_lastFliesTick = 0;
 }
 
 void SetSpawnLimits(bool limitPolice, bool limitGangs, int maxPolice, int maxGangs) {
@@ -332,6 +374,9 @@ bool IsPedsMayhem() { return s_pedsMayhem; }
 
 void SetPedsAtkRocket(bool enable) { s_pedsAtkRocket = enable; }
 bool IsPedsAtkRocket() { return s_pedsAtkRocket; }
+
+void SetPedsRiot(bool enable) { s_pedsRiot = enable; }
+bool IsPedsRiot() { return s_pedsRiot; }
 
 void SetSlutMagnet(bool enable) { s_slutMagnet = enable; }
 bool IsSlutMagnet() { return s_slutMagnet; }

@@ -28,6 +28,10 @@ CapabilitySupport GetCapabilitySupport(Capability capability) {
     case Capability::Player:
     case Capability::Ped:
     case Capability::Vehicle:
+    case Capability::Weapon:
+    case Capability::World:
+    case Capability::Visual:
+    case Capability::Teleport:
     case Capability::BulletAssist:
         return CapabilitySupport::Partial;
     case Capability::Hooks:
@@ -41,6 +45,10 @@ CapabilitySupport GetCapabilitySupport(Capability capability) {
     case Capability::Player:
     case Capability::Ped:
     case Capability::Vehicle:
+    case Capability::Weapon:
+    case Capability::World:
+    case Capability::Visual:
+    case Capability::Teleport:
         return CapabilitySupport::Partial;
     case Capability::Hooks:
     case Capability::Ui:
@@ -83,6 +91,7 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::PedClassification:
     case FeatureCapability::PedBigHead:
     case FeatureCapability::PedThinBody:
+    case FeatureCapability::PedSmokeFlies:
     case FeatureCapability::VehicleBasic:
     case FeatureCapability::VehicleColors:
     case FeatureCapability::VehicleDoors:
@@ -102,6 +111,7 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::VehicleAutoDrive:
     case FeatureCapability::VehiclePaintjob:
     case FeatureCapability::VehicleUpgrades:
+    case FeatureCapability::VehicleCheats:
     case FeatureCapability::WorldTime:
     case FeatureCapability::WorldWeather:
     case FeatureCapability::WorldGravity:
@@ -115,16 +125,19 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::WorldForbiddenAreaWanted:
     case FeatureCapability::WorldFreePayNSpray:
     case FeatureCapability::WorldNoWaterPhysics:
+    case FeatureCapability::WorldSolidWater:
     case FeatureCapability::WeaponBasic:
     case FeatureCapability::WeaponGive:
     case FeatureCapability::WeaponDrop:
     case FeatureCapability::WeaponSkills:
     case FeatureCapability::WeaponRuntimeEffects:
+    case FeatureCapability::WeaponStatOverrides:
     case FeatureCapability::SceneAnimation:
     case FeatureCapability::SceneMission:
     case FeatureCapability::TeleportBasic:
     case FeatureCapability::VisualHudRadar:
     case FeatureCapability::VisualFilter:
+    case FeatureCapability::VisualRadarOptions:
     case FeatureCapability::BulletAssistTracking:
     case FeatureCapability::BulletAssistThroughWalls:
     case FeatureCapability::BulletAssistPedBounds:
@@ -165,6 +178,24 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::BulletAssistThroughWalls:
     case FeatureCapability::BulletAssistPedBounds:
     case FeatureCapability::BulletAssistVehicleBounds:
+    case FeatureCapability::WorldTime:
+    case FeatureCapability::WorldWeather:
+    case FeatureCapability::WorldGravity:
+    case FeatureCapability::WorldGameSpeed:
+    case FeatureCapability::WorldFpsLimit:
+    case FeatureCapability::WorldDaysPassed:
+    case FeatureCapability::WorldFreezeTime:
+    case FeatureCapability::WorldFasterClock:
+    case FeatureCapability::WorldDisableReplay:
+    case FeatureCapability::WorldDisableCheats:
+    case FeatureCapability::WeaponBasic:
+    case FeatureCapability::WeaponGive:
+    case FeatureCapability::WeaponDrop:
+    case FeatureCapability::WeaponRuntimeEffects:
+    case FeatureCapability::WeaponStatOverrides:
+    case FeatureCapability::TeleportBasic:
+    case FeatureCapability::VisualHudRadar:
+    case FeatureCapability::VisualFilter:
         return CapabilitySupport::Supported;
     case FeatureCapability::PlayerRuntimeEffects:
     case FeatureCapability::VehicleBasic:
@@ -173,6 +204,7 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::BulletAssistPedSkeleton:
     case FeatureCapability::BulletAssistVehicleCollision:
     case FeatureCapability::BulletAssistFireSuppression:
+    case FeatureCapability::WorldPickups:
         return CapabilitySupport::Partial;
     default:
         return CapabilitySupport::Unsupported;
@@ -193,10 +225,29 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::VehicleSpawnSession:
     case FeatureCapability::VehicleDelete:
     case FeatureCapability::VehicleEvents:
+    case FeatureCapability::WorldTime:
+    case FeatureCapability::WorldWeather:
+    case FeatureCapability::WorldGravity:
+    case FeatureCapability::WorldGameSpeed:
+    case FeatureCapability::WorldFpsLimit:
+    case FeatureCapability::WorldDaysPassed:
+    case FeatureCapability::WorldFreezeTime:
+    case FeatureCapability::WorldFasterClock:
+    case FeatureCapability::WorldDisableReplay:
+    case FeatureCapability::WorldDisableCheats:
+    case FeatureCapability::WeaponBasic:
+    case FeatureCapability::WeaponGive:
+    case FeatureCapability::WeaponDrop:
+    case FeatureCapability::WeaponRuntimeEffects:
+    case FeatureCapability::WeaponStatOverrides:
+    case FeatureCapability::TeleportBasic:
+    case FeatureCapability::VisualHudRadar:
+    case FeatureCapability::VisualFilter:
         return CapabilitySupport::Supported;
     case FeatureCapability::PlayerRuntimeEffects:
     case FeatureCapability::VehicleBasic:
     case FeatureCapability::VehicleColors:
+    case FeatureCapability::WorldPickups:
         return CapabilitySupport::Partial;
     default:
         return CapabilitySupport::Unsupported;

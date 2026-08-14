@@ -11,6 +11,7 @@ bool IsValidModel(unsigned int modelId);
 bool IsValid(void* vehicle);
 bool IsPlayerUsing(void* vehicle);
 bool Delete(void* vehicle);
+void MarkNoLongerNeeded(void* vehicle);
 void Repair(void* vehicle);
 void Start(void* vehicle);
 void Stop(void* vehicle);
@@ -54,7 +55,7 @@ void OpenDoor(void* vehicle, int doorIndex);
 void PopDoor(void* vehicle, int doorIndex);
 #endif
 void BlowUpAll();
-bool Spawn(unsigned int modelId, bool asDriver, bool aircraftInAir);
+bool Spawn(unsigned int modelId, bool asDriver, bool aircraftInAir, bool cleanupPrevious);
 void ApplySpeed(void* vehicle, float speed);
 
 } // namespace XBase::Detail::VehicleBackend

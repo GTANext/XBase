@@ -9,6 +9,7 @@
 #include "CRadar.h"
 #include "CMenuManager.h"
 #include "extensions/ScriptCommands.h"
+#include <cmath>
 #include <deque>
 #include <windows.h>
 
@@ -38,9 +39,74 @@ bool DeleteVehicle(CVehicle* vehicle) {
     return true;
 }
 
+void MarkNoLongerNeeded(CVehicle* vehicle) {
+    if (!IsVehicleInPool(vehicle) || IsPlayerUsingVehicle(vehicle)) return;
+    const int handle = CPools::GetVehicleRef(vehicle);
+    if (handle == 0) return;
+    plugin::Command<plugin::Commands::MARK_CAR_AS_NO_LONGER_NEEDED>(handle);
+}
+
 bool IsValidVehicleModel(unsigned int modelId) {
     const int model = static_cast<int>(modelId);
     return CModelInfo::IsVehicleModel(model) && !CModelInfo::IsTrailerModel(model);
+}
+
+bool IsAircraftModel(int model) {
+    return CModelInfo::IsHeliModel(model) || CModelInfo::IsPlaneModel(model);
+}
+
+bool IsSpawnPositionClear(const CVector& pos) {
+    for (CVehicle* v : CPools::ms_pVehiclePool) {
+        if (!v) continue;
+        const CVector other = v->GetPosition();
+        const float dx = other.x - pos.x;
+        const float dy = other.y - pos.y;
+        const float dz = other.z - pos.z;
+        if (dx * dx + dy * dy + dz * dz < 64.0f) return false;
+    }
+    return !plugin::Command<plugin::Commands::IS_POINT_OBSCURED_BY_A_MISSION_ENTITY>(
+        pos.x - 3.0f, pos.y - 3.0f, pos.z - 1.0f,
+        pos.x + 3.0f, pos.y + 3.0f, pos.z + 3.0f);
+}
+
+CVector FindSideSpawnPosition(CPlayerPed* player, const CVector& origin) {
+    if (!player) return origin;
+
+    const float heading = player->GetHeading() * 0.01745329252f;
+    const float forwardX = std::sin(heading);
+    const float forwardY = std::cos(heading);
+    const float rightX = forwardY;
+    const float rightY = -forwardX;
+
+    const float offsets[][2] = {
+        { 8.0f, 2.0f },
+        { -8.0f, 2.0f },
+        { 10.0f, -2.0f },
+        { -10.0f, -2.0f },
+        { 0.0f, 12.0f },
+        { 0.0f, -12.0f },
+        { 14.0f, 0.0f },
+        { -14.0f, 0.0f }
+    };
+
+    for (const auto& offset : offsets) {
+        CVector candidate(
+            origin.x + rightX * offset[0] + forwardX * offset[1],
+            origin.y + rightY * offset[0] + forwardY * offset[1],
+            origin.z + 3.0f
+        );
+
+        float groundZ = candidate.z;
+        if (plugin::Command<plugin::Commands::GET_GROUND_Z_FOR_3D_COORD>(candidate.x, candidate.y, candidate.z + 20.0f, &groundZ)) {
+            candidate.z = groundZ + 1.0f;
+        }
+
+        if (IsSpawnPositionClear(candidate)) {
+            return candidate;
+        }
+    }
+
+    return CVector(origin.x + rightX * 14.0f, origin.y + rightY * 14.0f, origin.z + 1.0f);
 }
 
 } // namespace
@@ -296,12 +362,8 @@ SpawnResult SpawnEx(unsigned int modelId, const SpawnOptions& options) {
     if (options.asDriver && current) {
         if (options.cleanupPrevious && s_trackedVehicle && s_trackedVehicle != current &&
             IsVehicleInPool(s_trackedVehicle)) {
-            if (IsPlayerUsingVehicle(s_trackedVehicle) ||
-                !DeleteVehicle(s_trackedVehicle)) {
-                PushEvent(VehicleEventType::PreviousVehicleCleanupSkipped, SpawnFailureReason::None, modelId);
-            } else {
-                PushEvent(VehicleEventType::PreviousVehicleCleaned, SpawnFailureReason::None, modelId);
-            }
+            MarkNoLongerNeeded(s_trackedVehicle);
+            PushEvent(VehicleEventType::PreviousVehicleCleaned, SpawnFailureReason::None, modelId);
         }
         s_trackedVehicle = current;
     }
@@ -742,6 +804,15 @@ void BlowUpAll() {
     }
 }
 
+bool SetVehicleForwardSpeed(CVehicle* vehicle, float speed) {
+    if (!vehicle) return false;
+    CPlayerPed* player = FindPlayerPed();
+    if (!player || player->m_pVehicle != vehicle) return false;
+    const float velocity = speed / 50.0f;
+    vehicle->m_vecMoveSpeed = vehicle->GetForward() * velocity;
+    return true;
+}
+
 bool Spawn(unsigned int modelId, const SpawnOptions& options) {
     if (!IsValidVehicleModel(modelId)) return false;
 
@@ -749,25 +820,68 @@ bool Spawn(unsigned int modelId, const SpawnOptions& options) {
     if (!player) return false;
 
     const int model = static_cast<int>(modelId);
+    const int hplayer = CPools::GetPedRef(player);
+    const int interior = player->m_nAreaCode;
+    CVector pos = player->GetPosition();
+    float speed = 0.0f;
+
+    CVehicle* previousVehicle = nullptr;
+    int previousVehicleHandle = 0;
+
+    if (options.asDriver && options.cleanupPrevious && plugin::Command<plugin::Commands::IS_CHAR_IN_ANY_CAR>(hplayer)) {
+        previousVehicle = player->m_pVehicle;
+        if (previousVehicle) {
+            previousVehicleHandle = CPools::GetVehicleRef(previousVehicle);
+            pos = previousVehicle->GetPosition();
+            plugin::Command<plugin::Commands::GET_CAR_SPEED>(previousVehicleHandle, &speed);
+            plugin::Command<plugin::Commands::WARP_CHAR_FROM_CAR_TO_COORD>(hplayer, pos.x, pos.y, pos.z);
+            if (CModelInfo::IsTrainModel(previousVehicle->m_nModelIndex)) {
+                plugin::Command<plugin::Commands::MARK_MISSION_TRAIN_AS_NO_LONGER_NEEDED>(previousVehicleHandle);
+            } else {
+                plugin::Command<plugin::Commands::MARK_CAR_AS_NO_LONGER_NEEDED>(previousVehicleHandle);
+            }
+        }
+    } else if (!options.cleanupPrevious) {
+        pos = FindSideSpawnPosition(player, pos);
+    }
+
+    if (interior == 0) {
+        if (options.aircraftInAir && IsAircraftModel(model)) {
+            pos.z = 400.0f;
+        } else if (options.cleanupPrevious) {
+            pos.z -= 5.0f;
+        }
+    }
+
     CStreaming::RequestModel(model, PRIORITY_REQUEST);
     CStreaming::LoadAllRequestedModels(false);
 
-    CVector pos = player->GetPosition();
-    pos.x += 5.0f;
-    if (options.aircraftInAir && (CModelInfo::IsPlaneModel(model) || CModelInfo::IsHeliModel(model))) {
-        pos.z = 300.0f;
-    }
-
     int hveh = 0;
-    plugin::Command<plugin::Commands::CREATE_CAR>(model, pos.x, pos.y, pos.z, &hveh);
+    if (options.asDriver) {
+        plugin::Command<plugin::Commands::CREATE_CAR>(model, pos.x, pos.y, pos.z + (options.cleanupPrevious ? 4.0f : 1.0f), &hveh);
+    } else {
+        if (options.cleanupPrevious) {
+            player->TransformFromObjectSpace(pos, CVector(0.0f, 10.0f, 0.0f));
+        }
+        plugin::Command<plugin::Commands::CREATE_CAR>(model, pos.x, pos.y, pos.z + 1.0f, &hveh);
+    }
     if (hveh == 0) return false;
     plugin::Command<plugin::Commands::MARK_MODEL_AS_NO_LONGER_NEEDED>(model);
 
     CVehicle* spawned = reinterpret_cast<CVehicle*>(CPools::GetVehicle(hveh));
     if (!spawned) return false;
+
+    spawned->SetHeading(player->GetHeading() + (options.asDriver ? 0.0f : 55.0f));
+    spawned->m_eDoorLock = DOORLOCK_UNLOCKED;
+    spawned->m_nAreaCode = interior;
+    spawned->bHasBeenOwnedByPlayer = true;
+
     if (options.asDriver) {
-        plugin::Command<plugin::Commands::WARP_CHAR_INTO_CAR>(CPools::GetPedRef(player), hveh);
+        plugin::Command<plugin::Commands::WARP_CHAR_INTO_CAR>(hplayer, hveh);
+        if (speed > 0.0f) SetVehicleForwardSpeed(spawned, speed);
     }
+
+    plugin::Command<plugin::Commands::MARK_CAR_AS_NO_LONGER_NEEDED>(hveh);
     return true;
 }
 

@@ -732,6 +732,9 @@ void TextWrapped(const char* format, const char* first, const char* second) {
 }
 void TextDisabled(const char* text) { ImGui::TextDisabled("%s", text ? text : ""); }
 void TextDisabled(const char* format, int value) { ImGui::TextDisabled(format ? format : "", value); }
+void TextDisabled(const char* format, int first, int second) {
+    ImGui::TextDisabled(format ? format : "", first, second);
+}
 void TextDisabled(const char* format, const char* value) {
     ImGui::TextDisabled(format ? format : "", value ? value : "");
 }
@@ -793,18 +796,13 @@ bool StyledButton(const char* label, Vec2 size) {
 
 void BeginGroupBox(const char* label, Vec2 size) {
     ImGui::BeginGroup();
-    ImGui::BeginChild(label, ImVec2(size.x, size.y), true,
+    ImGui::BeginChild(label ? label : "##grouped", ImVec2(size.x, size.y), true,
                       ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoMove |
                       ImGuiWindowFlags_NoBackground);
 }
 
 void EndGroupBox() {
     ImGui::EndChild();
-    ImGui::SameLine();
-    ImVec2 cursorPos = ImGui::GetCursorScreenPos();
-    cursorPos.y += ImGui::GetFontSize();
-    ImGui::SetCursorScreenPos(cursorPos);
-    ImGui::Separator();
     ImGui::EndGroup();
 }
 
@@ -1000,8 +998,9 @@ void RenderNotifications(Vec2 screenPosition) {
 
     for (auto it = s_notifications.rbegin(); it != s_notifications.rend(); ++it) {
         float progress = 1.0f - (it->elapsed / it->duration);
-        float alpha = ImSaturate(progress * 1.5f);
+        float alpha = (progress * 1.5f);
         if (alpha < 0.05f) alpha = 0.05f;
+        if (alpha > 1.0f) alpha = 1.0f;
 
         Color toastColor = it->color;
         ColorF toastCf = ToColorF(toastColor);
@@ -1013,7 +1012,7 @@ void RenderNotifications(Vec2 screenPosition) {
         Vec2 max = {min.x + size.x, min.y + size.y};
 
         drawList->AddRectFilled(ImVec2(min.x, min.y), ImVec2(max.x, max.y),
-                                ToImGuiColor(bgCf), 6.0f, 0, 0.0f);
+                                ToImGuiColor(bgCf), 6.0f);
         drawList->AddRect(ImVec2(min.x, min.y), ImVec2(max.x, max.y),
                           ToImGuiColor(toastCf), 6.0f, 0, 1.0f * alpha);
 
@@ -1026,7 +1025,7 @@ void RenderNotifications(Vec2 screenPosition) {
         if (barWidth > 0.0f) {
             drawList->AddRectFilled(ImVec2(min.x, max.y),
                                     ImVec2(min.x + barWidth, max.y + 3.0f),
-                                    ToImGuiColor(toastCf), 0.0f, 0, 1.0f * alpha);
+                                    ToImGuiColor(toastCf), 0.0f);
         }
 
         posY += size.y + padding;
