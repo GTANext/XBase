@@ -360,20 +360,28 @@ void DrawBounds(ImDrawList* drawList, CEntity* entity, ImU32 color) {
     for (const auto& edge : edges) DrawLine(drawList, corners[edge[0]], corners[edge[1]], color);
 }
 
-void DrawFallbackSkeleton(ImDrawList* drawList, CPed* ped, ImU32 color) {
-    const CVector head = ped->TransformFromObjectSpace({0.0f, 0.0f, 0.90f});
-    const CVector neck = ped->TransformFromObjectSpace({0.0f, 0.0f, 0.72f});
-    const CVector pelvis = ped->TransformFromObjectSpace({0.0f, 0.0f, 0.38f});
-    const CVector leftHand = ped->TransformFromObjectSpace({-0.42f, 0.0f, 0.62f});
-    const CVector rightHand = ped->TransformFromObjectSpace({0.42f, 0.0f, 0.62f});
-    const CVector leftFoot = ped->TransformFromObjectSpace({-0.12f, 0.0f, 0.05f});
-    const CVector rightFoot = ped->TransformFromObjectSpace({0.12f, 0.0f, 0.05f});
-    DrawLine(drawList, head, neck, color);
-    DrawLine(drawList, neck, pelvis, color);
-    DrawLine(drawList, neck, leftHand, color);
-    DrawLine(drawList, neck, rightHand, color);
-    DrawLine(drawList, pelvis, leftFoot, color);
-    DrawLine(drawList, pelvis, rightFoot, color);
+void DrawFrameNode(ImDrawList* drawList, RwFrame* frame, ImU32 color) {
+    if (!frame) return;
+    const RwMatrix* ltm = RwFrameGetLTM(frame);
+    if (!ltm) return;
+    const RwV3d* pos = RwMatrixGetPos(ltm);
+    if (!pos) return;
+    const CVector from{pos->x, pos->y, pos->z};
+    for (RwFrame* child = frame->child; child; child = child->next) {
+        const RwMatrix* childLtm = RwFrameGetLTM(child);
+        if (childLtm) {
+            const RwV3d* childPos = RwMatrixGetPos(childLtm);
+            if (childPos) DrawLine(drawList, from, CVector{childPos->x, childPos->y, childPos->z}, color);
+        }
+        DrawFrameNode(drawList, child, color);
+    }
+}
+
+void DrawSkeleton(ImDrawList* drawList, CPed* ped, ImU32 color) {
+    if (!ped->m_pRwClump) return;
+    RwFrame* root = RpClumpGetFrame(ped->m_pRwClump);
+    if (!root) return;
+    DrawFrameNode(drawList, root, color);
 }
 }
 
@@ -439,7 +447,7 @@ void Draw(const BulletAssist::Config& config) {
             CPed* ped = CPools::ms_pPedPool->GetAt(index);
             if (!IsValidPed(ped, player)) continue;
             if (config.drawPedBounds || config.drawPedCollision) DrawBounds(drawList, ped, IM_COL32(80, 220, 120, 230));
-            if (config.drawPedSkeleton) DrawFallbackSkeleton(drawList, ped, IM_COL32(255, 200, 60, 230));
+            if (config.drawPedSkeleton) DrawSkeleton(drawList, ped, IM_COL32(255, 200, 60, 230));
         }
     }
     if (CPools::ms_pVehiclePool && (config.drawVehicleBounds || config.drawVehicleCollision)) {

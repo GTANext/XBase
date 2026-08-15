@@ -81,6 +81,13 @@ void ProcessSolidWater() {
         return;
     }
 
+    // 跟随对象每帧同步坐标属过度开销；约 5Hz 更新足够平滑，
+    // 避免每帧反复执行 GET_WATER_HEIGHT / IS_CHAR_IN_ANY_BOAT 等插件命令。
+    static unsigned int s_lastSolidWaterTick = 0;
+    const unsigned int now = CTimer::m_snTimeInMilliseconds;
+    if (now - s_lastSolidWaterTick < 200) return;
+    s_lastSolidWaterTick = now;
+
     CVector pos = player->GetPosition();
     float waterHeight = 0.0f;
     plugin::Command<plugin::Commands::GET_WATER_HEIGHT_AT_COORDS>(pos.x, pos.y, false, &waterHeight);

@@ -1,5 +1,5 @@
 #include <XBase/Json.h>
-#include <fstream>
+#include <XBase/Platform.h>
 #include <sstream>
 #include <cctype>
 
@@ -372,17 +372,13 @@ Value Value::Parse(const std::string& text) {
 }
 
 Value Value::Load(const std::string& filePath) {
-    std::ifstream file(filePath);
-    if (!file.is_open()) return {};
-    std::string text((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    std::string text;
+    if (!Platform::ReadTextFile(filePath, text)) return {};
     return Parse(text);
 }
 
 bool Value::Save(const Value& val, const std::string& filePath) {
-    std::ofstream file(filePath);
-    if (!file.is_open()) return false;
-    file << val.Serialize(true);
-    return true;
+    return Platform::WriteTextFile(filePath, val.Serialize(true));
 }
 
 } // namespace XBase::Json

@@ -1,4 +1,6 @@
 #include <XBase/Log.h>
+#include <XBase/Platform.h>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <mutex>
@@ -49,12 +51,53 @@ const char* LevelName(XBase::Log::Level level) {
     return "UNKNOWN";
 }
 
+bool LooksLikeUtf8(const char* text) {
+    if (!text) return true;
+    const unsigned char* p = reinterpret_cast<const unsigned char*>(text);
+    while (*p) {
+        if (*p <= 0x7F) {
+            ++p;
+            continue;
+        }
+        if ((*p & 0xE0) == 0xC0) {
+            if ((p[1] & 0xC0) != 0x80) return false;
+            p += 2;
+            continue;
+        }
+        if ((*p & 0xF0) == 0xE0) {
+            if ((p[1] & 0xC0) != 0x80 || (p[2] & 0xC0) != 0x80) return false;
+            p += 3;
+            continue;
+        }
+        if ((*p & 0xF8) == 0xF0) {
+            if ((p[1] & 0xC0) != 0x80 || (p[2] & 0xC0) != 0x80 || (p[3] & 0xC0) != 0x80) return false;
+            p += 4;
+            continue;
+        }
+        return false;
+    }
+    return true;
+}
+
+// 系统 ANSI(ACP) → UTF-8（兼容外部窄字符串）
+std::string AcpToUtf8(const char* acp) {
+    if (!acp || !acp[0]) return {};
+    const int wideLen = MultiByteToWideChar(CP_ACP, 0, acp, -1, nullptr, 0);
+    if (wideLen <= 1) return acp;
+    std::wstring wide(static_cast<std::size_t>(wideLen - 1), L'\0');
+    MultiByteToWideChar(CP_ACP, 0, acp, -1, wide.data(), wideLen);
+    return XBase::Platform::WideToUtf8(wide);
+}
+
+// 日志消息统一成 UTF-8：合法 UTF-8 原样保留，否则按系统 ACP 转码
+std::string NormalizeToUtf8(const char* message) {
+    if (!message) return {};
+    if (LooksLikeUtf8(message)) return message;
+    return AcpToUtf8(message);
+}
+
 std::string GetDefaultLogPath() {
-    char buf[MAX_PATH];
-    GetModuleFileNameA(nullptr, buf, MAX_PATH);
-    std::string path(buf);
-    auto pos = path.find_last_of('\\');
-    if (pos != std::string::npos) path.resize(pos + 1);
+    const std::string path = XBase::Platform::CurrentModuleDirectory();
     return path + "XBase\\logs\\xbase.log";
 }
 
@@ -62,24 +105,26 @@ bool EnsureDir(const std::string& path) {
     auto pos = path.find_last_of('\\');
     if (pos == std::string::npos) return false;
     std::string dir = path.substr(0, pos);
-    CreateDirectoryA(dir.c_str(), nullptr);
-    return true;
+    return XBase::Platform::EnsureDirectory(dir);
 }
 
 void WriteUnlocked(XBase::Log::Level level, const char* message) {
     if (!State().initialized) return;
 
     std::string ts = Timestamp();
-    std::string line = "[" + ts + "] [" + LevelName(level) + "] " + message;
+    const std::string utf8Message = NormalizeToUtf8(message);
+    std::string line = "[" + ts + "] [" + LevelName(level) + "] " + utf8Message;
 
     if (State().file.is_open()) {
-        State().file << line << std::endl;
+        // binary 模式逐字节写入，避免 text 模式对 \n 及本地化码页做转换
+        State().file.write(line.data(), static_cast<std::streamsize>(line.size()));
+        State().file.put('\n');
         State().file.flush();
     }
 
     XBase::Log::Entry entry;
     entry.level = level;
-    entry.text = message;
+    entry.text = utf8Message;
     entry.timestamp = ts;
     State().entries.push_back(std::move(entry));
     if (State().entries.size() > MAX_ENTRIES) {
@@ -96,6 +141,17 @@ LONG WINAPI HandleUnhandledException(EXCEPTION_POINTERS* exceptionInfo) {
                 << " address=0x"
                 << reinterpret_cast<std::uintptr_t>(exceptionInfo->ExceptionRecord->ExceptionAddress)
                 << " thread=" << std::dec << GetCurrentThreadId();
+        MEMORY_BASIC_INFORMATION mbi{};
+        if (VirtualQuery(exceptionInfo->ExceptionRecord->ExceptionAddress, &mbi, sizeof(mbi))
+            && mbi.AllocationBase) {
+            char moduleName[MAX_PATH] = {};
+            if (GetModuleFileNameA(static_cast<HMODULE>(mbi.AllocationBase), moduleName, MAX_PATH)) {
+                const char* name = std::strrchr(moduleName, '\\');
+                message << " module=" << (name ? name + 1 : moduleName)
+                        << " base=0x" << std::hex << std::uppercase
+                        << reinterpret_cast<std::uintptr_t>(mbi.AllocationBase);
+            }
+        }
         std::lock_guard<std::mutex> lock(State().mtx);
         WriteUnlocked(XBase::Log::Level::Error, message.str().c_str());
     }
@@ -134,8 +190,15 @@ void Init(const char* filePath) {
     State().filePath = filePath ? filePath : GetDefaultLogPath();
     EnsureDir(State().filePath);
 
-    State().file.open(State().filePath, std::ios::app);
+    // 每次启动都清空上次日志；binary + UTF-8 BOM，保证任何编辑器都能正确显示
+    const std::wstring widePath = XBase::Platform::Utf8ToWide(State().filePath);
+    State().file.open(std::filesystem::path(widePath), std::ios::binary | std::ios::out | std::ios::trunc);
     State().initialized = true;
+    if (State().file.is_open()) {
+        const char bom[] = { '\xEF', '\xBB', '\xBF' };
+        State().file.write(bom, sizeof(bom));
+        State().file.flush();
+    }
     InstallCrashHandlers();
     WriteUnlocked(Level::Info, "XBase Log initialized");
 }

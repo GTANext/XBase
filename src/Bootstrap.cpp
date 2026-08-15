@@ -17,6 +17,26 @@ enum class DetectedGame {
 
 HMODULE payloadModule = nullptr;
 
+std::wstring Utf8ToWide(const std::string& value) {
+    if (value.empty()) return {};
+    const int size = MultiByteToWideChar(
+        CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), nullptr, 0);
+    if (size <= 0) return {};
+    std::wstring wide(static_cast<std::size_t>(size), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), wide.data(), size);
+    return wide;
+}
+
+std::string WideToUtf8(const std::wstring& value) {
+    if (value.empty()) return {};
+    const int size = WideCharToMultiByte(
+        CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), nullptr, 0, nullptr, nullptr);
+    if (size <= 0) return {};
+    std::string utf8(static_cast<std::size_t>(size), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), utf8.data(), size, nullptr, nullptr);
+    return utf8;
+}
+
 bool ReadUInt(std::uintptr_t address, unsigned int& value) {
     __try {
         value = *reinterpret_cast<const unsigned int*>(address);
@@ -68,9 +88,9 @@ const char* PayloadFileName(DetectedGame game) {
 }
 
 std::string DirectoryFromModule(HMODULE module) {
-    std::string path(MAX_PATH, '\0');
+    std::wstring path(MAX_PATH, L'\0');
     for (;;) {
-        const DWORD size = GetModuleFileNameA(module, path.data(), static_cast<DWORD>(path.size()));
+        const DWORD size = GetModuleFileNameW(module, path.data(), static_cast<DWORD>(path.size()));
         if (size == 0) return {};
         if (size < path.size() - 1) {
             path.resize(size);
@@ -79,9 +99,10 @@ std::string DirectoryFromModule(HMODULE module) {
         path.resize(path.size() * 2);
     }
 
-    const std::size_t slash = path.find_last_of("\\/");
+    const std::string utf8 = WideToUtf8(path);
+    const std::size_t slash = utf8.find_last_of("\\/");
     if (slash == std::string::npos) return {};
-    return path.substr(0, slash + 1);
+    return utf8.substr(0, slash + 1);
 }
 
 std::string PayloadPath(HMODULE loaderModule, DetectedGame game) {
@@ -94,7 +115,7 @@ std::string PayloadPath(HMODULE loaderModule, DetectedGame game) {
 }
 
 void ShowError(const char* message) {
-    MessageBoxA(HWND_DESKTOP, message, "XMenu", MB_OK | MB_ICONERROR);
+    MessageBoxW(HWND_DESKTOP, Utf8ToWide(message).c_str(), L"XMenu", MB_OK | MB_ICONERROR);
 }
 
 } // namespace
@@ -112,7 +133,7 @@ bool Attach(ModuleHandle loaderModule) {
 
     const std::string payloadPath = PayloadPath(
         reinterpret_cast<HMODULE>(loaderModule), game);
-    payloadModule = LoadLibraryA(payloadPath.c_str());
+    payloadModule = LoadLibraryW(Utf8ToWide(payloadPath).c_str());
     if (payloadModule) return true;
 
     const DWORD errorCode = GetLastError();

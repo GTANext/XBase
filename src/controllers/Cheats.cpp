@@ -122,12 +122,7 @@ void ApplyFlipNoBurn(bool enable) {
 }
 
 bool IsPedPointerInPool(CPed* ped) {
-    if (!ped) return false;
-    if (!CPools::ms_pPedPool) return false;
-    for (CPed* pooledPed : *CPools::ms_pPedPool) {
-        if (pooledPed == ped) return true;
-    }
-    return false;
+    return ped && CPools::ms_pPedPool && CPools::ms_pPedPool->IsObjectValid(ped);
 }
 
 void DrawRandomCheatProgress() {

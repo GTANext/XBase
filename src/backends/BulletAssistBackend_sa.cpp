@@ -130,6 +130,10 @@ CVector BonePosition(CPed* ped, ePedBones bone) {
     return {output.x, output.y, output.z};
 }
 
+bool BoneValid(const CVector& position) {
+    return std::fabs(position.x) > 0.001f || std::fabs(position.y) > 0.001f || std::fabs(position.z) > 0.001f;
+}
+
 CVector PedAimPosition(CPed* ped) {
     CVector position = ped->GetPosition();
     switch (s_config.aimPart) {
@@ -213,6 +217,7 @@ void CollectCandidates() {
         for (int index = 0; index < CPools::ms_pPedPool->m_nSize; ++index) {
             CPed* ped = CPools::ms_pPedPool->GetAt(index);
             if (!IsValidPed(ped, player) || !IsRelationEnabled(Classify(ped, player))) continue;
+            if (ped->m_pRwObject == nullptr) continue;
             if (ped->bInVehicle && ped->m_pVehicle && IsHelicopter(ped->m_pVehicle)) continue;
             const CVector target = PedAimPosition(ped);
             const float score = CandidateScore(cameraOrigin, cameraDirection, playerPosition, target);
@@ -293,7 +298,6 @@ bool __cdecl HookProcessLineOfSight(
         ? ExtendPast(origin, s_shotTarget) : target;
     if (s_config.tracking && s_hasShotTarget) {
         peds = true;
-        vehicles = true;
     }
     if (s_config.throughWalls) {
         buildings = false;
@@ -313,7 +317,7 @@ bool __fastcall HookFireInstantHit(
         return s_originalFireInstantHit(weapon, firingEntity, origin, muzzle, targetEntity,
             target, driveByOrigin, arg6, drawMuzzle);
     }
-    if (firingEntity && !IsLocalPlayer(firingEntity)) {
+    if (firingEntity && firingEntity->m_nType == ENTITY_TYPE_PED && !IsLocalPlayer(firingEntity)) {
         CPed* ped = static_cast<CPed*>(firingEntity);
         const int reference = CPools::GetPedRef(ped);
         if (reference >= 0 && ShouldSuppressPedFire(
@@ -370,7 +374,10 @@ bool WorldToScreen(const CVector& world, ImVec2& screen) {
     RwV3d output{};
     float width = 0.0f;
     float height = 0.0f;
-    if (!CSprite::CalcScreenCoors(input, &output, &width, &height, true, true)) return false;
+    if (!CSprite::CalcScreenCoors(input, &output, &width, &height, true, true)
+        || width < 1.0f || height < 1.0f) {
+        return false;
+    }
     screen = {output.x, output.y};
     return true;
 }
@@ -401,15 +408,29 @@ void DrawEntityBounds(ImDrawList* drawList, CEntity* entity, ImU32 color) {
     for (const auto& edge : edges) DrawLine(drawList, corners[edge[0]], corners[edge[1]], color);
 }
 
+void DrawBoneLine(ImDrawList* drawList, CPed* ped, ePedBones from, ePedBones to, ImU32 color) {
+    const CVector fromPosition = BonePosition(ped, from);
+    const CVector toPosition = BonePosition(ped, to);
+    if (!BoneValid(fromPosition) || !BoneValid(toPosition)) return;
+    DrawLine(drawList, fromPosition, toPosition, color);
+}
+
 void DrawSkeleton(ImDrawList* drawList, CPed* ped, ImU32 color) {
-    constexpr ePedBones links[][2] = {
-        {BONE_PELVIS, BONE_SPINE1}, {BONE_SPINE1, BONE_NECK}, {BONE_NECK, BONE_HEAD},
-        {BONE_NECK, BONE_LEFTSHOULDER}, {BONE_LEFTSHOULDER, BONE_LEFTELBOW},
-        {BONE_NECK, BONE_RIGHTSHOULDER}, {BONE_RIGHTSHOULDER, BONE_RIGHTELBOW},
-        {BONE_PELVIS, BONE_LEFTHIP}, {BONE_LEFTHIP, BONE_LEFTKNEE},
-        {BONE_PELVIS, BONE_RIGHTHIP}, {BONE_RIGHTHIP, BONE_RIGHTKNEE},
-    };
-    for (const auto& link : links) DrawLine(drawList, BonePosition(ped, link[0]), BonePosition(ped, link[1]), color);
+    DrawBoneLine(drawList, ped, BONE_PELVIS, BONE_SPINE1, color);
+    DrawBoneLine(drawList, ped, BONE_SPINE1, BONE_NECK, color);
+    DrawBoneLine(drawList, ped, BONE_NECK, BONE_HEAD, color);
+    DrawBoneLine(drawList, ped, BONE_NECK, BONE_LEFTSHOULDER, color);
+    DrawBoneLine(drawList, ped, BONE_LEFTSHOULDER, BONE_LEFTELBOW, color);
+    DrawBoneLine(drawList, ped, BONE_LEFTELBOW, BONE_LEFTHAND, color);
+    DrawBoneLine(drawList, ped, BONE_NECK, BONE_RIGHTSHOULDER, color);
+    DrawBoneLine(drawList, ped, BONE_RIGHTSHOULDER, BONE_RIGHTELBOW, color);
+    DrawBoneLine(drawList, ped, BONE_RIGHTELBOW, BONE_RIGHTHAND, color);
+    DrawBoneLine(drawList, ped, BONE_PELVIS, BONE_LEFTHIP, color);
+    DrawBoneLine(drawList, ped, BONE_LEFTHIP, BONE_LEFTKNEE, color);
+    DrawBoneLine(drawList, ped, BONE_LEFTKNEE, BONE_LEFTFOOT, color);
+    DrawBoneLine(drawList, ped, BONE_PELVIS, BONE_RIGHTHIP, color);
+    DrawBoneLine(drawList, ped, BONE_RIGHTHIP, BONE_RIGHTKNEE, color);
+    DrawBoneLine(drawList, ped, BONE_RIGHTKNEE, BONE_RIGHTFOOT, color);
 }
 }
 

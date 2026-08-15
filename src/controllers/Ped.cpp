@@ -26,11 +26,7 @@
 namespace {
 
 bool IsPedInPool(CPed* ped) {
-    if (!ped || !CPools::ms_pPedPool) return false;
-    for (CPed* pooledPed : CPools::ms_pPedPool) {
-        if (pooledPed == ped) return true;
-    }
-    return false;
+    return ped && CPools::ms_pPedPool && CPools::ms_pPedPool->IsObjectValid(ped);
 }
 
 bool s_noFireEnabled = false;

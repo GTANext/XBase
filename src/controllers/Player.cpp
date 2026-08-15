@@ -23,11 +23,7 @@
 namespace {
 
 bool IsPedInPool(CPed* ped) {
-    if (!ped || !CPools::ms_pPedPool) return false;
-    for (CPed* p : CPools::ms_pPedPool) {
-        if (p == ped) return true;
-    }
-    return false;
+    return ped && CPools::ms_pPedPool && CPools::ms_pPedPool->IsObjectValid(ped);
 }
 
 float ClampHealth(float value) {
@@ -674,7 +670,7 @@ void CopyCoordinates() {
 }
 
 bool RequestSaveGame() {
-    *reinterpret_cast<bool*>(0x96918C) = true;
+    plugin::Command<plugin::Commands::ACTIVATE_SAVE_MENU>();
     return true;
 }
 

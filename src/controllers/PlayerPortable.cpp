@@ -2,6 +2,9 @@
 #include <XBase/Platform.h>
 #include "../backends/PlayerBackend.h"
 
+#include "plugin.h"
+#include "extensions/ScriptCommands.h"
+
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
@@ -404,7 +407,10 @@ void CopyCoordinates() {
     std::snprintf(buffer, sizeof(buffer), "%.3f, %.3f, %.3f", position.x, position.y, position.z);
     Platform::SetClipboardText(buffer);
 }
-bool RequestSaveGame() { return false; }
+bool RequestSaveGame() {
+    plugin::Command<plugin::Commands::ACTIVATE_SAVE_MENU>();
+    return true;
+}
 void MoveForward(float distance) { MoveRelative(distance, 0.0f, 0.0f); }
 void MoveUp(float distance) { MoveRelative(0.0f, 0.0f, distance); }
 void MoveDown(float distance) { MoveRelative(0.0f, 0.0f, -distance); }

@@ -1,7 +1,7 @@
 #include <XBase/Config.h>
 #include <XBase/Json.h>
 #include <XBase/Log.h>
-#include <Windows.h>
+#include <XBase/Platform.h>
 
 namespace {
 
@@ -17,11 +17,7 @@ ConfigState& State() {
 }
 
 std::string DefaultConfigPath() {
-    char buf[MAX_PATH];
-    GetModuleFileNameA(nullptr, buf, MAX_PATH);
-    std::string path(buf);
-    auto pos = path.find_last_of('\\');
-    if (pos != std::string::npos) path.resize(pos + 1);
+    std::string path = XBase::Platform::CurrentModuleDirectory();
     return path + "XBase\\config.json";
 }
 
@@ -77,7 +73,7 @@ void Init(const std::string& filePath) {
     auto dirPos = State().filePath.find_last_of('\\');
     if (dirPos != std::string::npos) {
         std::string dir = State().filePath.substr(0, dirPos);
-        CreateDirectoryA(dir.c_str(), nullptr);
+        XBase::Platform::EnsureDirectory(dir);
     }
 
     auto loaded = Json::Value::Load(State().filePath);

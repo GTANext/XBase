@@ -1,11 +1,10 @@
 #include <XBase/I18n.h>
 #include <XBase/Log.h>
 #include <XBase/Json.h>
-#include <Windows.h>
+#include <XBase/Platform.h>
 #include <unordered_map>
 #include <vector>
 #include <string>
-#include <fstream>
 #include <algorithm>
 
 namespace {
@@ -25,30 +24,11 @@ I18nState& State() {
 }
 
 std::string ModuleDir() {
-    char buf[MAX_PATH];
-    GetModuleFileNameA(nullptr, buf, MAX_PATH);
-    std::string path(buf);
-    auto pos = path.find_last_of('\\');
-    if (pos != std::string::npos) path.resize(pos + 1);
-    return path;
+    return XBase::Platform::CurrentModuleDirectory();
 }
 
 std::vector<std::string> ScanLanguages(const std::string& dir) {
-    std::vector<std::string> codes;
-    std::string searchPath = dir + "*";
-    WIN32_FIND_DATAA ffd;
-    HANDLE hFind = FindFirstFileA(searchPath.c_str(), &ffd);
-    if (hFind == INVALID_HANDLE_VALUE) return codes;
-    do {
-        if (ffd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-            std::string name = ffd.cFileName;
-            if (name != "." && name != ".." && name.size() <= 10) {
-                codes.push_back(name);
-            }
-        }
-    } while (FindNextFileA(hFind, &ffd) != 0);
-    FindClose(hFind);
-    return codes;
+    return XBase::Platform::ListDirectories(dir);
 }
 
 bool LoadDictionary(const std::string& filePath, std::unordered_map<std::string, std::string>& dict) {

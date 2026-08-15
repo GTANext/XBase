@@ -2,8 +2,6 @@
 
 #include <chrono>
 #include <cstring>
-#include <fstream>
-#include <iterator>
 #include <string>
 #include <vector>
 #include <windows.h>
@@ -14,12 +12,32 @@
 
 namespace XBase::Platform {
 
+std::wstring Utf8ToWide(const std::string& value) {
+    if (value.empty()) return {};
+    const int size = MultiByteToWideChar(
+        CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), nullptr, 0);
+    if (size <= 0) return {};
+    std::wstring wide(static_cast<std::size_t>(size), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), wide.data(), size);
+    return wide;
+}
+
+std::string WideToUtf8(const std::wstring& value) {
+    if (value.empty()) return {};
+    const int size = WideCharToMultiByte(
+        CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), nullptr, 0, nullptr, nullptr);
+    if (size <= 0) return {};
+    std::string utf8(static_cast<std::size_t>(size), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), utf8.data(), size, nullptr, nullptr);
+    return utf8;
+}
+
 bool ShowError(const char* title, const char* message) {
     if (!message || !message[0]) return false;
-    MessageBoxA(
+    MessageBoxW(
         HWND_DESKTOP,
-        message,
-        title && title[0] ? title : "XBase",
+        Utf8ToWide(message).c_str(),
+        Utf8ToWide(title && title[0] ? title : "XBase").c_str(),
         MB_OK | MB_ICONERROR);
     return true;
 }
@@ -27,22 +45,23 @@ bool ShowError(const char* title, const char* message) {
 bool OpenExternal(const char* target) {
     if (!target || !target[0]) return false;
     return reinterpret_cast<std::intptr_t>(
-        ShellExecuteA(nullptr, "open", target, nullptr, nullptr, SW_SHOWNORMAL)) > 32;
+        ShellExecuteW(nullptr, L"open", Utf8ToWide(target).c_str(), nullptr, nullptr, SW_SHOWNORMAL)) > 32;
 }
 
 bool SetClipboardText(const char* text) {
     if (!text || !OpenClipboard(nullptr)) return false;
 
+    const std::wstring wide = Utf8ToWide(text);
     bool copied = false;
     if (EmptyClipboard()) {
-        const std::size_t size = std::strlen(text) + 1;
+        const std::size_t size = (wide.size() + 1) * sizeof(wchar_t);
         HGLOBAL memory = GlobalAlloc(GMEM_MOVEABLE, size);
         if (memory) {
             void* target = GlobalLock(memory);
             if (target) {
-                std::memcpy(target, text, size);
+                std::memcpy(target, wide.c_str(), size);
                 GlobalUnlock(memory);
-                if (SetClipboardData(CF_TEXT, memory)) {
+                if (SetClipboardData(CF_UNICODETEXT, memory)) {
                     copied = true;
                     memory = nullptr;
                 }
@@ -66,9 +85,9 @@ namespace {
 std::string DirectoryFromModule(HMODULE module) {
     if (!module) return {};
 
-    std::string path(MAX_PATH, '\0');
+    std::wstring path(MAX_PATH, L'\0');
     for (;;) {
-        const DWORD size = GetModuleFileNameA(module, path.data(), static_cast<DWORD>(path.size()));
+        const DWORD size = GetModuleFileNameW(module, path.data(), static_cast<DWORD>(path.size()));
         if (size == 0) return {};
         if (size < path.size() - 1) {
             path.resize(size);
@@ -77,22 +96,23 @@ std::string DirectoryFromModule(HMODULE module) {
         path.resize(path.size() * 2);
     }
 
-    const std::size_t slash = path.find_last_of("\\/");
-    return slash == std::string::npos ? std::string{} : path.substr(0, slash + 1);
+    const std::string utf8 = WideToUtf8(path);
+    const std::size_t slash = utf8.find_last_of("\\/");
+    return slash == std::string::npos ? std::string{} : utf8.substr(0, slash + 1);
 }
 
 } // namespace
 
 std::string ModuleDirectory(const char* moduleName) {
     if (!moduleName || !moduleName[0]) return {};
-    return DirectoryFromModule(GetModuleHandleA(moduleName));
+    return DirectoryFromModule(GetModuleHandleW(Utf8ToWide(moduleName).c_str()));
 }
 
 std::string CurrentModuleDirectory() {
     HMODULE module = nullptr;
-    if (!GetModuleHandleExA(
+    if (!GetModuleHandleExW(
             GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-            reinterpret_cast<LPCSTR>(&CurrentModuleDirectory),
+            reinterpret_cast<LPCWSTR>(&CurrentModuleDirectory),
             &module)) {
         return {};
     }
@@ -100,23 +120,23 @@ std::string CurrentModuleDirectory() {
 }
 
 bool IsModuleLoaded(const char* moduleName) {
-    return moduleName && moduleName[0] && GetModuleHandleA(moduleName) != nullptr;
+    return moduleName && moduleName[0] && GetModuleHandleW(Utf8ToWide(moduleName).c_str()) != nullptr;
 }
 
 bool EnsureDirectory(const std::string& path) {
     if (path.empty()) return false;
-    if (CreateDirectoryA(path.c_str(), nullptr)) return true;
+    if (CreateDirectoryW(Utf8ToWide(path).c_str(), nullptr)) return true;
     return GetLastError() == ERROR_ALREADY_EXISTS;
 }
 
 bool DirectoryExists(const std::string& path) {
-    const DWORD attributes = GetFileAttributesA(path.c_str());
+    const DWORD attributes = GetFileAttributesW(Utf8ToWide(path).c_str());
     return attributes != INVALID_FILE_ATTRIBUTES
         && (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
 }
 
 bool FileExists(const std::string& path) {
-    const DWORD attributes = GetFileAttributesA(path.c_str());
+    const DWORD attributes = GetFileAttributesW(Utf8ToWide(path).c_str());
     return attributes != INVALID_FILE_ATTRIBUTES
         && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
 }
@@ -126,7 +146,7 @@ bool DownloadText(const char* url, std::string& output) {
     if (!url || !url[0]) return false;
 
     IStream* stream = nullptr;
-    if (FAILED(URLOpenBlockingStreamA(nullptr, url, &stream, 0, nullptr)) || !stream) {
+    if (FAILED(URLOpenBlockingStreamW(nullptr, Utf8ToWide(url).c_str(), &stream, 0, nullptr)) || !stream) {
         return false;
     }
 
@@ -152,36 +172,65 @@ bool DownloadText(const char* url, std::string& output) {
 
 bool ReadTextFile(const std::string& path, std::string& output) {
     output.clear();
-    std::ifstream file(path, std::ios::binary);
-    if (!file.is_open()) return false;
-    output.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+    const std::wstring wide = Utf8ToWide(path);
+    if (wide.empty()) return false;
+
+    HANDLE handle = CreateFileW(
+        wide.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (handle == INVALID_HANDLE_VALUE) return false;
+
+    std::string buffer;
+    char chunk[4096];
+    DWORD bytesRead = 0;
+    bool success = true;
+    for (;;) {
+        if (!ReadFile(handle, chunk, sizeof(chunk), &bytesRead, nullptr)) {
+            success = false;
+            break;
+        }
+        if (bytesRead == 0) break;
+        buffer.append(chunk, bytesRead);
+    }
+    CloseHandle(handle);
+
+    if (!success) return false;
+    output = std::move(buffer);
     return true;
 }
 
 bool WriteTextFile(const std::string& path, const std::string& content) {
-    std::ofstream file(path, std::ios::binary | std::ios::trunc);
-    if (!file.is_open()) return false;
-    file.write(content.data(), static_cast<std::streamsize>(content.size()));
-    return !file.fail();
+    const std::wstring wide = Utf8ToWide(path);
+    if (wide.empty()) return false;
+
+    HANDLE handle = CreateFileW(
+        wide.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (handle == INVALID_HANDLE_VALUE) return false;
+
+    DWORD written = 0;
+    const bool ok = WriteFile(handle, content.data(), static_cast<DWORD>(content.size()), &written, nullptr)
+        && written == content.size();
+    CloseHandle(handle);
+    return ok;
 }
 
 std::vector<std::string> ListDirectories(const std::string& path) {
     std::vector<std::string> directories;
     if (path.empty()) return directories;
 
-    std::string pattern = path;
-    if (pattern.back() != '\\' && pattern.back() != '/') pattern += '\\';
-    pattern += '*';
+    std::wstring pattern = Utf8ToWide(path);
+    if (pattern.empty()) return directories;
+    if (pattern.back() != L'\\' && pattern.back() != L'/') pattern += L'\\';
+    pattern += L'*';
 
-    WIN32_FIND_DATAA data{};
-    HANDLE search = FindFirstFileA(pattern.c_str(), &data);
+    WIN32_FIND_DATAW data{};
+    HANDLE search = FindFirstFileW(pattern.c_str(), &data);
     if (search == INVALID_HANDLE_VALUE) return directories;
 
     do {
         if ((data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0) continue;
-        const std::string name = data.cFileName;
+        const std::string name = WideToUtf8(data.cFileName);
         if (name != "." && name != "..") directories.push_back(name);
-    } while (FindNextFileA(search, &data));
+    } while (FindNextFileW(search, &data));
     FindClose(search);
     return directories;
 }

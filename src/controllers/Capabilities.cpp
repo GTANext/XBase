@@ -164,6 +164,7 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::PlayerBasicState:
     case FeatureCapability::PlayerProofs:
     case FeatureCapability::PlayerMovement:
+    case FeatureCapability::PlayerSaveGame:
     case FeatureCapability::PedBasic:
     case FeatureCapability::PedSpawn:
     case FeatureCapability::PedDelete:
@@ -214,6 +215,7 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::PlayerBasicState:
     case FeatureCapability::PlayerProofs:
     case FeatureCapability::PlayerMovement:
+    case FeatureCapability::PlayerSaveGame:
     case FeatureCapability::PedBasic:
     case FeatureCapability::PedSpawn:
     case FeatureCapability::PedDelete:

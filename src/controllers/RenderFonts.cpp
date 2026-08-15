@@ -1,6 +1,7 @@
 #include "RenderFonts.h"
 
 #include <XBase/Log.h>
+#include <XBase/Platform.h>
 
 #include <Windows.h>
 #include "imgui/imgui.h"
@@ -48,8 +49,7 @@ const ImWchar GlyphRanges[] = {
 };
 
 bool IsFile(const std::string& path) {
-    const DWORD attributes = GetFileAttributesA(path.c_str());
-    return attributes != INVALID_FILE_ATTRIBUTES && (attributes & FILE_ATTRIBUTE_DIRECTORY) == 0;
+    return XBase::Platform::FileExists(path);
 }
 
 } // namespace
@@ -57,14 +57,14 @@ bool IsFile(const std::string& path) {
 bool LoadDefault() {
     if (!ImGui::GetCurrentContext()) return false;
 
-    char windowsPath[MAX_PATH]{};
-    const UINT pathSize = GetWindowsDirectoryA(windowsPath, MAX_PATH);
+    wchar_t windowsPath[MAX_PATH]{};
+    const UINT pathSize = GetWindowsDirectoryW(windowsPath, MAX_PATH);
     if (pathSize == 0 || pathSize >= MAX_PATH) {
         Log::Warn("RenderFonts: Windows font directory unavailable");
         return false;
     }
 
-    const std::string fontsDirectory = std::string(windowsPath) + "\\Fonts\\";
+    const std::string fontsDirectory = XBase::Platform::WideToUtf8(windowsPath) + "\\Fonts\\";
     ImGuiIO& io = ImGui::GetIO();
     for (const FontCandidate& candidate : FontCandidates) {
         const std::string path = fontsDirectory + candidate.fileName;

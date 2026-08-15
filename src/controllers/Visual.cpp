@@ -77,6 +77,8 @@ bool s_unfogValue = false;
 PatchSnapshot s_squareRadarSite{0x58585C, {}, 4, false};
 bool s_squareApplied = false;
 static float s_squareRadarScale = 0.000001f;
+bool s_hideAreaNamesApplied = false;
+bool s_hideVehicleNamesApplied = false;
 
 void RestoreRadarPatches() {
     if (s_fullscreenApplied) {
@@ -170,6 +172,8 @@ void NotifyGameInit() {
     s_hasHudSnapshot = false;
     s_hasRadarSnapshot = false;
     s_radarOptions = RadarOptions{};
+    s_hideAreaNamesApplied = false;
+    s_hideVehicleNamesApplied = false;
 }
 
 void Shutdown() {
@@ -230,8 +234,14 @@ void Process() {
 
     CHud::bScriptDontDisplayAreaName = radar.hideAreaNames;
     CHud::bScriptDontDisplayVehicleName = radar.hideVehicleNames;
-    plugin::Command<plugin::Commands::DISPLAY_ZONE_NAMES>(!radar.hideAreaNames);
-    plugin::Command<plugin::Commands::DISPLAY_CAR_NAMES>(!radar.hideVehicleNames);
+    if (radar.hideAreaNames != s_hideAreaNamesApplied) {
+        plugin::Command<plugin::Commands::DISPLAY_ZONE_NAMES>(!radar.hideAreaNames);
+        s_hideAreaNamesApplied = radar.hideAreaNames;
+    }
+    if (radar.hideVehicleNames != s_hideVehicleNamesApplied) {
+        plugin::Command<plugin::Commands::DISPLAY_CAR_NAMES>(!radar.hideVehicleNames);
+        s_hideVehicleNamesApplied = radar.hideVehicleNames;
+    }
 
     if (radar.square != s_squareApplied) {
         if (radar.square) {

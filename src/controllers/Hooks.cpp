@@ -79,14 +79,21 @@ void WaitForRenderCallbacks() {
     });
 }
 
-std::vector<std::function<void()>> SnapshotDrawCallbacks() {
+std::vector<std::function<void()>> g_drawCallbacksSnapshot;
+bool g_drawCallbacksSnapshotDirty = true;
+
+const std::vector<std::function<void()>>& SnapshotDrawCallbacks() {
     std::lock_guard<std::mutex> lock(g_drawCallbacksMutex);
-    std::vector<std::function<void()>> callbacks;
-    callbacks.reserve(g_drawCallbacks.size());
-    for (const DrawCallbackEntry& entry : g_drawCallbacks) {
-        callbacks.push_back(entry.callback);
+    if (!g_drawCallbacksSnapshotDirty) {
+        return g_drawCallbacksSnapshot;
     }
-    return callbacks;
+    g_drawCallbacksSnapshot.clear();
+    g_drawCallbacksSnapshot.reserve(g_drawCallbacks.size());
+    for (const DrawCallbackEntry& entry : g_drawCallbacks) {
+        g_drawCallbacksSnapshot.push_back(entry.callback);
+    }
+    g_drawCallbacksSnapshotDirty = false;
+    return g_drawCallbacksSnapshot;
 }
 
 struct InputPatchSnapshot {
@@ -122,9 +129,19 @@ void ConfigureInputPatches() {
 #endif
 }
 
+void ClearMouseState() {
+    CPad* pad = CPad::GetPad(0);
+    if (!pad) return;
+    CPad::NewMouseControllerState = {};
+    CPad::OldMouseControllerState = {};
+    CPad::PCTempMouseControllerState = {};
+    (void)pad;
+}
+
 void ApplyGameInputBlock(bool blocked) {
     if (g_gameInputBlocked != blocked) {
         g_gameInputBlocked = blocked;
+        ClearMouseState();
         if (blocked) {
             for (InputPatchSnapshot& patch : g_inputPatches) CaptureInputPatch(patch);
 #if defined(GTASA)
@@ -141,6 +158,11 @@ void ApplyGameInputBlock(bool blocked) {
 #endif
         } else {
             for (InputPatchSnapshot& patch : g_inputPatches) RestoreInputPatch(patch);
+            // 菜单期间 DirectInput 鼠标增量被拦截后累积在缓冲里，
+            // 恢复补丁后先跑一次 UpdatePads 把积压增量读入 CPad 状态，再清零丢弃，
+            // 否则下一帧相机会按菜单期间的鼠标移动量转动。
+            CPad::UpdatePads();
+            ClearMouseState();
         }
     }
 
@@ -427,6 +449,7 @@ void Shutdown() {
     {
         std::lock_guard<std::mutex> lock(g_drawCallbacksMutex);
         g_drawCallbacks.clear();
+        g_drawCallbacksSnapshotDirty = true;
     }
     g_originalEndScene = nullptr;
     g_originalReset = nullptr;
@@ -475,6 +498,7 @@ DrawCallbackId RegisterDrawCallback(std::function<void()> callback) {
     std::lock_guard<std::mutex> lock(g_drawCallbacksMutex);
     const DrawCallbackId callbackId{g_nextDrawCallbackId++};
     g_drawCallbacks.push_back({callbackId, std::move(callback)});
+    g_drawCallbacksSnapshotDirty = true;
     return callbackId;
 #else
     (void)callback;
@@ -495,6 +519,7 @@ bool UnregisterDrawCallback(DrawCallbackId callbackId) {
         });
     if (callback == g_drawCallbacks.end()) return false;
     g_drawCallbacks.erase(callback);
+    g_drawCallbacksSnapshotDirty = true;
     return true;
 #else
     (void)callbackId;
