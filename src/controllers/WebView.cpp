@@ -931,9 +931,11 @@ void ProcessKeyboardFallback() {
 // 独占全屏抓帧预览不占屏幕，保持游戏自己的光标状态
 void ProcessCursorVisibility() {
     bool panelShown = false;
+    HWND hostWindow = nullptr;
     {
         std::lock_guard<std::mutex> lock(s_state.mutex);
         panelShown = s_state.initialized && s_state.visible && !s_state.captureMode;
+        hostWindow = s_state.hostWindow;
     }
 
     if (panelShown) {
@@ -941,6 +943,23 @@ void ProcessCursorVisibility() {
         info.cbSize = sizeof(info);
         if (GetCursorInfo(&info) && info.flags == 0 && ShowCursor(TRUE) >= 0) {
             ++s_state.cursorShows;
+        }
+
+        // 游戏在游玩状态会把光标形状设成空，落在面板上时补回箭头形状，
+        // 否则只有点击让网页子窗口拿到焦点后光标才可见
+        if (hostWindow && IsWindow(hostWindow)) {
+            POINT cursor{};
+            RECT client{};
+            if (GetCursorPos(&cursor) && GetClientRect(hostWindow, &client)) {
+                POINT topLeft{client.left, client.top};
+                POINT bottomRight{client.right, client.bottom};
+                if (ClientToScreen(hostWindow, &topLeft) && ClientToScreen(hostWindow, &bottomRight)) {
+                    const RECT screenRect{topLeft.x, topLeft.y, bottomRight.x, bottomRight.y};
+                    if (PtInRect(&screenRect, cursor)) {
+                        SetCursor(LoadCursorW(nullptr, MAKEINTRESOURCEW(32512)));
+                    }
+                }
+            }
         }
         return;
     }

@@ -162,53 +162,63 @@ for %%T in (XBaseBootstrap XBasePayloadEntry XBaseSA XBaseVC XBaseIII) do (
     )
 )
 
-if /i "%CONFIG%"=="Release" if exist "..\XMenu\" (
-    if not exist "..\XMenu\include\XBase" mkdir "..\XMenu\include\XBase"
-    if not exist "..\XMenu\lib" mkdir "..\XMenu\lib"
-    xcopy "include\XBase\*.h" "..\XMenu\include\XBase\" /Y /Q >nul
-    if errorlevel 1 (
-        echo [Error] Failed to stage XBase public headers into XMenu.
-        goto fail
-    )
-    for %%T in (XBaseBootstrap XBasePayloadEntry XBaseSA XBaseVC XBaseIII) do (
-        copy /Y "build\bin\%CONFIG%\%%T.lib" "..\XMenu\lib\%%T.lib" >nul
-        if errorlevel 1 (
-            echo [Error] Failed to stage %%T.lib into XMenu.
-            goto fail
-        )
-    )
-    for %%P in (Plugin Plugin_VC Plugin_III) do (
-        set "P_STAGE_NAME=%%P"
-        set "P_SOURCE=%%P"
-        if /i "%%P"=="Plugin" set "P_STAGE_NAME=PluginSA"
-        if /i "%%P"=="Plugin_VC" set "P_STAGE_NAME=PluginVC"
-        if /i "%%P"=="Plugin_III" set "P_STAGE_NAME=PluginIII"
-        if not exist "%PLUGIN_SDK_DIR%\output\lib\!P_SOURCE!.lib" (
-            echo [Error] Missing plugin-sdk game symbol library: !P_SOURCE!.lib
-            goto fail
-        )
-        copy /Y "%PLUGIN_SDK_DIR%\output\lib\!P_SOURCE!.lib" "..\XMenu\lib\!P_STAGE_NAME!.lib" >nul
-        if errorlevel 1 (
-            echo [Error] Failed to stage !P_STAGE_NAME!.lib into XMenu.
-            goto fail
-        )
-    )
-    if exist "include\webview2\x86\WebView2Loader.dll" (
-        copy /Y "include\webview2\x86\WebView2Loader.dll" "..\XMenu\lib\WebView2Loader.dll" >nul
-        if errorlevel 1 (
-            echo [Error] Failed to stage WebView2Loader.dll into XMenu.
-            goto fail
-        )
-    ) else (
-        echo [Warning] include\webview2\x86\WebView2Loader.dll not found; WebView feature will be unavailable.
-    )
-    echo [Info] Staged Release SDK to ..\XMenu\include\XBase and ..\XMenu\lib
+if /i "%CONFIG%"=="Release" (
+    call :stage_sdk "..\XMenu"
+    call :stage_sdk "..\III.VC.SA.WebView2"
 )
 
 echo.
 echo Build completed successfully.
 echo Outputs: XBaseBootstrap.lib, XBasePayloadEntry.lib, XBaseSA.lib, XBaseVC.lib, XBaseIII.lib
 goto success
+
+rem ============================================================
+rem Stage the Release SDK for every sibling host that consumes it.
+rem ============================================================
+:stage_sdk
+set "SDK_TARGET=%~1"
+if not exist "%SDK_TARGET%\" exit /b 0
+if not exist "%SDK_TARGET%\include\XBase" mkdir "%SDK_TARGET%\include\XBase"
+if not exist "%SDK_TARGET%\lib" mkdir "%SDK_TARGET%\lib"
+xcopy "include\XBase\*.h" "%SDK_TARGET%\include\XBase\" /Y /Q >nul
+if errorlevel 1 (
+    echo [Error] Failed to stage XBase public headers into %SDK_TARGET%.
+    exit /b 1
+)
+for %%T in (XBaseBootstrap XBasePayloadEntry XBaseSA XBaseVC XBaseIII) do (
+    copy /Y "build\bin\%CONFIG%\%%T.lib" "%SDK_TARGET%\lib\%%T.lib" >nul
+    if errorlevel 1 (
+        echo [Error] Failed to stage %%T.lib into %SDK_TARGET%.
+        exit /b 1
+    )
+)
+for %%P in (Plugin Plugin_VC Plugin_III) do (
+    set "P_STAGE_NAME=%%P"
+    set "P_SOURCE=%%P"
+    if /i "%%P"=="Plugin" set "P_STAGE_NAME=PluginSA"
+    if /i "%%P"=="Plugin_VC" set "P_STAGE_NAME=PluginVC"
+    if /i "%%P"=="Plugin_III" set "P_STAGE_NAME=PluginIII"
+    if not exist "%PLUGIN_SDK_DIR%\output\lib\!P_SOURCE!.lib" (
+        echo [Error] Missing plugin-sdk game symbol library: !P_SOURCE!.lib
+        exit /b 1
+    )
+    copy /Y "%PLUGIN_SDK_DIR%\output\lib\!P_SOURCE!.lib" "%SDK_TARGET%\lib\!P_STAGE_NAME!.lib" >nul
+    if errorlevel 1 (
+        echo [Error] Failed to stage !P_STAGE_NAME!.lib into %SDK_TARGET%.
+        exit /b 1
+    )
+)
+if exist "include\webview2\x86\WebView2Loader.dll" (
+    copy /Y "include\webview2\x86\WebView2Loader.dll" "%SDK_TARGET%\lib\WebView2Loader.dll" >nul
+    if errorlevel 1 (
+        echo [Error] Failed to stage WebView2Loader.dll into %SDK_TARGET%.
+        exit /b 1
+    )
+) else (
+    echo [Warning] include\webview2\x86\WebView2Loader.dll not found; WebView feature will be unavailable.
+)
+echo [Info] Staged Release SDK to %SDK_TARGET%\include\XBase and %SDK_TARGET%\lib
+exit /b 0
 
 :find_premake
 set "PREMAKE_EXE="

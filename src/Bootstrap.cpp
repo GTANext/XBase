@@ -73,17 +73,55 @@ DetectedGame DetectGame() {
     return DetectedGame::Unknown;
 }
 
-const char* PayloadFileName(DetectedGame game) {
+// 载荷目录与文件名优先取宿主 ASI 导出的基名，未导出时按 ASI 文件名推导。
+// XMenu.asi 找 XMenu\XMenuSA.dll；III.VC.SA.WebView2.asi 导出 WebView2，
+// 因此找 WebView2\WebView2SA.dll，主 ASI 名字不受载荷命名影响。
+using PayloadBaseNameFn = const char*(*)();
+
+std::string ExportedHostName(HMODULE loaderModule) {
+    const auto exported = reinterpret_cast<PayloadBaseNameFn>(
+        GetProcAddress(loaderModule, "XBasePayloadBaseName"));
+    if (!exported) return {};
+    const char* name = exported();
+    return name && name[0] ? std::string(name) : std::string();
+}
+
+std::string HostNameFromModule(HMODULE loaderModule) {
+    const std::string exported = ExportedHostName(loaderModule);
+    if (!exported.empty()) return exported;
+
+    std::wstring path(MAX_PATH, L'\0');
+    for (;;) {
+        const DWORD size = GetModuleFileNameW(loaderModule, path.data(), static_cast<DWORD>(path.size()));
+        if (size == 0) return "XMenu";
+        if (size < path.size() - 1) {
+            path.resize(size);
+            break;
+        }
+        path.resize(path.size() * 2);
+    }
+
+    const std::string utf8 = WideToUtf8(path);
+    const std::size_t slash = utf8.find_last_of("\\/");
+    std::string name = slash == std::string::npos ? utf8 : utf8.substr(slash + 1);
+    const std::size_t dot = name.find_last_of('.');
+    if (dot != std::string::npos) {
+        name.resize(dot);
+    }
+    return name.empty() ? std::string("XMenu") : name;
+}
+
+std::string PayloadFileName(DetectedGame game, const std::string& hostName) {
     switch (game) {
     case DetectedGame::SanAndreas:
-        return "XMenuSA.dll";
+        return hostName + "SA.dll";
     case DetectedGame::ViceCity:
-        return "XMenuVC.dll";
+        return hostName + "VC.dll";
     case DetectedGame::III:
-        return "XMenuIII.dll";
+        return hostName + "III.dll";
     case DetectedGame::Unknown:
     default:
-        return nullptr;
+        return {};
     }
 }
 
@@ -106,16 +144,17 @@ std::string DirectoryFromModule(HMODULE module) {
 }
 
 std::string PayloadPath(HMODULE loaderModule, DetectedGame game) {
-    const char* fileName = PayloadFileName(game);
-    if (!fileName) return {};
+    const std::string hostName = HostNameFromModule(loaderModule);
+    const std::string fileName = PayloadFileName(game, hostName);
+    if (fileName.empty()) return {};
 
     const std::string directory = DirectoryFromModule(loaderModule);
-    if (directory.empty()) return std::string("XMenu\\") + fileName;
-    return directory + "XMenu\\" + fileName;
+    if (directory.empty()) return hostName + "\\" + fileName;
+    return directory + hostName + "\\" + fileName;
 }
 
-void ShowError(const char* message) {
-    MessageBoxW(HWND_DESKTOP, Utf8ToWide(message).c_str(), L"XMenu", MB_OK | MB_ICONERROR);
+void ShowError(const std::string& hostName, const char* message) {
+    MessageBoxW(HWND_DESKTOP, Utf8ToWide(message).c_str(), Utf8ToWide(hostName).c_str(), MB_OK | MB_ICONERROR);
 }
 
 } // namespace
@@ -123,16 +162,18 @@ void ShowError(const char* message) {
 bool Attach(ModuleHandle loaderModule) {
     if (payloadModule) return true;
 
+    const HMODULE module = reinterpret_cast<HMODULE>(loaderModule);
+    const std::string hostName = HostNameFromModule(module);
     const DetectedGame game = DetectGame();
     if (game == DetectedGame::Unknown) {
         ShowError(
+            hostName,
             "Failed to detect supported GTA runtime.\n\n"
             "Supported games: GTA SA, GTA Vice City, GTA III.");
         return false;
     }
 
-    const std::string payloadPath = PayloadPath(
-        reinterpret_cast<HMODULE>(loaderModule), game);
+    const std::string payloadPath = PayloadPath(module, game);
     payloadModule = LoadLibraryW(Utf8ToWide(payloadPath).c_str());
     if (payloadModule) return true;
 
@@ -141,10 +182,10 @@ bool Attach(ModuleHandle loaderModule) {
     std::snprintf(
         message,
         sizeof(message),
-        "Failed to load XMenu payload.\n\nExpected file:\n%s\n\nError code: %lu",
+        "Failed to load the plugin payload.\n\nExpected file:\n%s\n\nError code: %lu",
         payloadPath.c_str(),
         static_cast<unsigned long>(errorCode));
-    ShowError(message);
+    ShowError(hostName, message);
     return false;
 }
 
