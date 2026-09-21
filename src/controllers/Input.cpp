@@ -160,6 +160,10 @@ bool WasPressed(Key key) {
     return ConsumePressed(key);
 }
 
+void PollSystemKeys() {
+    Detail::Input::PollFromSystem();
+}
+
 bool IsDown(const Hotkey& hotkey) {
     return IsDown(hotkey.key)
         && HasModifiers(hotkey.modifiers, s_modifiers.load(std::memory_order_acquire));
