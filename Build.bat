@@ -79,6 +79,14 @@ if not defined PLUGIN_SDK_DIR (
     goto fail
 )
 
+call :find_msbuild
+if not defined MSBUILD_EXE (
+    echo [Error] MSBuild.exe not found.
+    goto fail
+)
+call :build_plugin_sdk
+if errorlevel 1 goto fail
+
 if not exist "build" mkdir "build"
 
 echo Removing stale generated project files...
@@ -185,6 +193,15 @@ if /i "%CONFIG%"=="Release" if exist "..\XMenu\" (
             goto fail
         )
     )
+    if exist "include\webview2\x86\WebView2Loader.dll" (
+        copy /Y "include\webview2\x86\WebView2Loader.dll" "..\XMenu\lib\WebView2Loader.dll" >nul
+        if errorlevel 1 (
+            echo [Error] Failed to stage WebView2Loader.dll into XMenu.
+            goto fail
+        )
+    ) else (
+        echo [Warning] include\webview2\x86\WebView2Loader.dll not found; WebView feature will be unavailable.
+    )
     echo [Info] Staged Release SDK to ..\XMenu\include\XBase and ..\XMenu\lib
 )
 
@@ -222,6 +239,27 @@ if not "%PLUGIN_SDK_DIR%"=="" (
         echo [Warning] Ignoring invalid PLUGIN_SDK_DIR: %PLUGIN_SDK_DIR%
         set "PLUGIN_SDK_DIR="
         echo [Error] Three-version backends cannot be generated without plugin-sdk.
+    )
+)
+exit /b 0
+
+:build_plugin_sdk
+rem XBase links plugin-sdk game symbols; build missing static libs before premake.
+set "PSDK_LIB_DIR=!PLUGIN_SDK_DIR!\output\lib"
+set "PSDK_NEED_BUILD="
+if not exist "!PSDK_LIB_DIR!\Plugin.lib" set "PSDK_NEED_BUILD=1"
+if not exist "!PSDK_LIB_DIR!\Plugin_VC.lib" set "PSDK_NEED_BUILD=1"
+if not exist "!PSDK_LIB_DIR!\Plugin_III.lib" set "PSDK_NEED_BUILD=1"
+if not defined PSDK_NEED_BUILD exit /b 0
+
+echo Building plugin-sdk game symbol libraries...
+if not exist "!PSDK_LIB_DIR!" mkdir "!PSDK_LIB_DIR!"
+for %%P in ("plugin_sa\Plugin_SA" "plugin_vc\Plugin_VC" "plugin_III\Plugin_III") do (
+    echo Building %%~P...
+    "!MSBUILD_EXE!" "!PLUGIN_SDK_DIR!\%%~P.vcxproj" /m /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=!PLATFORM_TOOLSET! /p:PLUGIN_SDK_DIR=!PLUGIN_SDK_DIR! /verbosity:minimal
+    if errorlevel 1 (
+        echo [Error] plugin-sdk build failed: %%~P
+        exit /b 1
     )
 )
 exit /b 0

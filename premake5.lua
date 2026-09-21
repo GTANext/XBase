@@ -76,7 +76,8 @@ local function add_sa_settings()
             path.join(pluginSdkDir, "plugin_sa", "game_sa", "rw"),
             path.join(pluginSdkDir, "shared"),
             path.join(pluginSdkDir, "shared", "game"),
-            path.join(pluginSdkDir, "shared", "dxsdk")
+            path.join(pluginSdkDir, "shared", "dxsdk"),
+            path.join(pluginSdkDir, "stb")
         }
     end
     if hasKiero then
@@ -93,6 +94,7 @@ local function add_portable_player_target(name, sdkName, gameName, gameDefine, b
             "include/XBase/**.h",
             "src/backends/BulletAssistBackend.h",
             "src/backends/BulletAssistBackend_" .. string.lower(sdkName) .. ".cpp",
+            "src/backends/RuntimeGuard_" .. string.lower(sdkName) .. ".cpp",
             "src/backends/PlayerBackend.h",
             "src/backends/PlayerBackend_" .. string.lower(sdkName) .. ".cpp",
             "src/backends/PedBackend.h",
@@ -107,8 +109,11 @@ local function add_portable_player_target(name, sdkName, gameName, gameDefine, b
             "src/backends/VisualBackend_" .. string.lower(sdkName) .. ".cpp",
             "src/backends/TeleportBackend.h",
             "src/backends/TeleportBackend_" .. string.lower(sdkName) .. ".cpp",
+            "src/backends/CheatsBackend.h",
+            "src/backends/CheatsBackend_" .. string.lower(sdkName) .. ".cpp",
             "src/controllers/Capabilities.cpp",
             "src/controllers/BulletAssist.cpp",
+            "src/controllers/CheatsPortable.cpp",
             "src/controllers/Config.cpp",
             "src/controllers/CoreStub.cpp",
             "src/controllers/I18n.cpp",
@@ -116,6 +121,7 @@ local function add_portable_player_target(name, sdkName, gameName, gameDefine, b
             "src/controllers/Log.cpp",
             "src/controllers/Hooks.cpp",
             "src/controllers/Input.cpp",
+            "src/controllers/Hotkey.cpp",
             "src/controllers/Host.cpp",
             "src/controllers/Platform.cpp",
             "src/controllers/Runtime.cpp",
@@ -123,6 +129,7 @@ local function add_portable_player_target(name, sdkName, gameName, gameDefine, b
             "src/controllers/RenderFonts.h",
             "src/controllers/Theme.cpp",
             "src/controllers/UI.cpp",
+            "src/controllers/WebView.cpp",
             "src/controllers/PlayerPortable.cpp",
             "src/controllers/PedPortable.cpp",
             "src/controllers/PortableStubs.cpp",
@@ -154,7 +161,8 @@ local function add_portable_player_target(name, sdkName, gameName, gameDefine, b
             path.join(pluginSdkDir, "plugin_" .. sdkName, "game_" .. gameName, "rw"),
             path.join(pluginSdkDir, "shared"),
             path.join(pluginSdkDir, "shared", "game"),
-            path.join(pluginSdkDir, "shared", "dxsdk")
+            path.join(pluginSdkDir, "shared", "dxsdk"),
+            path.join(pluginSdkDir, "stb")
         }
         defines {
             "XBASE_WITH_PLUGIN_SDK",
@@ -188,6 +196,7 @@ project "XBaseSA"
         "src/controllers/Cheats.cpp",
         "src/controllers/VehicleEffects.cpp",
         "src/backends/BulletAssistBackend_sa.cpp",
+        "src/backends/RuntimeGuard_sa.cpp",
         "include/imgui/imgui.cpp",
         "include/imgui/imgui_draw.cpp",
         "include/imgui/imgui_tables.cpp",
@@ -206,6 +215,7 @@ project "XBaseSA"
         "src/controllers/PlayerPortable.cpp",
         "src/controllers/PedPortable.cpp",
         "src/controllers/PortableStubs.cpp",
+        "src/controllers/CheatsPortable.cpp",
         "src/controllers/VehiclePortable.cpp",
         "src/controllers/WeaponPortable.cpp",
         "src/controllers/WorldPortable.cpp",

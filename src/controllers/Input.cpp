@@ -127,6 +127,21 @@ void Reset() {
     for (auto& modifiers : s_pressedModifiers) modifiers.store(0, std::memory_order_release);
 }
 
+void PollFromSystem() {
+    for (std::uint32_t virtualKey = 0x08; virtualKey < 0x100; ++virtualKey) {
+        const XBase::Input::Key key = FromVirtualKey(virtualKey);
+        const XBase::Input::Modifier modifier = ModifierFromVirtualKey(virtualKey);
+        if (key == XBase::Input::Key::None && modifier == XBase::Input::Modifier::None) continue;
+
+        const bool down = (GetAsyncKeyState(static_cast<int>(virtualKey)) & 0x8000) != 0;
+        if (modifier == XBase::Input::Modifier::None
+            && s_down[Index(key)].load(std::memory_order_acquire) == down) {
+            continue;
+        }
+        HandleVirtualKey(virtualKey, down, false);
+    }
+}
+
 } // namespace XBase::Detail::Input
 
 namespace XBase::Input {

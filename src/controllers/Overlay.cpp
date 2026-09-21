@@ -8,6 +8,7 @@
 #include "CTimer.h"
 #include "CFont.h"
 #include "CRGBA.h"
+#include "RenderWare.h"
 #include <cstdio>
 #include <cstring>
 
@@ -16,7 +17,16 @@ namespace {
 bool s_visible = false;
 bool s_topLeft = true, s_topRight = false, s_bottomLeft = false, s_bottomRight = false;
 
-void DrawBlock(const char* text, float x, float y, CRGBA color) {
+int CountLines(const char* text) {
+    if (!text || !text[0]) return 0;
+    int lines = 1;
+    for (const char* p = text; *p; ++p) {
+        if (*p == '\n') ++lines;
+    }
+    return lines;
+}
+
+void DrawBlock(const char* text, float x, float y, CRGBA color, bool rightAligned) {
     if (!text || !text[0]) return;
     CFont::SetScale(0.35f, 0.35f);
     CFont::SetColor(color);
@@ -36,7 +46,8 @@ void DrawBlock(const char* text, float x, float y, CRGBA color) {
             char line[256];
             std::strncpy(line, p, len);
             line[len] = '\0';
-            CFont::PrintString(x, lineY, line);
+            const float lineX = rightAligned ? x - CFont::GetStringWidth(line, true) : x;
+            CFont::PrintString(lineX, lineY, line);
         }
         if (!nl) break;
         p = nl + 1;
@@ -85,7 +96,20 @@ void Draw() {
         fps, pos.x, pos.y, pos.z, health, armour, money, wanted, hour, minute, player->m_nAreaCode);
 
     CRGBA white(255, 255, 255, 255);
-    if (s_topLeft) DrawBlock(buf, 10.0f, 30.0f, white);
+
+    constexpr float padding = 10.0f;
+    constexpr float lineHeight = 14.0f;
+    const float screenWidth = static_cast<float>(RsGlobal.maximumWidth);
+    const float screenHeight = static_cast<float>(RsGlobal.maximumHeight);
+
+    const bool rightAligned = s_topRight || s_bottomRight;
+    const bool bottomAligned = s_bottomLeft || s_bottomRight;
+    const float x = rightAligned ? screenWidth - padding : padding;
+    const float y = bottomAligned
+        ? screenHeight - padding - static_cast<float>(CountLines(buf)) * lineHeight
+        : 30.0f;
+
+    DrawBlock(buf, x, y, white, rightAligned);
 }
 
 void SetVisible(bool enable) {

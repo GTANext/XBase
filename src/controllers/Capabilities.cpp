@@ -15,6 +15,7 @@ CapabilitySupport GetCapabilitySupport(Capability capability) {
     case Capability::VehicleEffects:
     case Capability::Hooks:
     case Capability::Ui:
+    case Capability::WebView:
         return CapabilitySupport::Supported;
     case Capability::Ped:
     case Capability::World:
@@ -33,9 +34,11 @@ CapabilitySupport GetCapabilitySupport(Capability capability) {
     case Capability::Visual:
     case Capability::Teleport:
     case Capability::BulletAssist:
+    case Capability::Cheats:
         return CapabilitySupport::Partial;
     case Capability::Hooks:
     case Capability::Ui:
+    case Capability::WebView:
         return CapabilitySupport::Supported;
     default:
         return CapabilitySupport::Unsupported;
@@ -49,9 +52,11 @@ CapabilitySupport GetCapabilitySupport(Capability capability) {
     case Capability::World:
     case Capability::Visual:
     case Capability::Teleport:
+    case Capability::Cheats:
         return CapabilitySupport::Partial;
     case Capability::Hooks:
     case Capability::Ui:
+    case Capability::WebView:
         return CapabilitySupport::Supported;
     default:
         return CapabilitySupport::Unsupported;
@@ -126,6 +131,7 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::WorldFreePayNSpray:
     case FeatureCapability::WorldNoWaterPhysics:
     case FeatureCapability::WorldSolidWater:
+    case FeatureCapability::WorldPickups:
     case FeatureCapability::WeaponBasic:
     case FeatureCapability::WeaponGive:
     case FeatureCapability::WeaponDrop:
@@ -140,12 +146,12 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::VisualRadarOptions:
     case FeatureCapability::BulletAssistTracking:
     case FeatureCapability::BulletAssistThroughWalls:
+    case FeatureCapability::BulletAssistHardLock:
     case FeatureCapability::BulletAssistPedBounds:
     case FeatureCapability::BulletAssistVehicleBounds:
         return CapabilitySupport::Supported;
     case FeatureCapability::PedMarkerSpawn:
     case FeatureCapability::PedGlobalStrategies:
-    case FeatureCapability::WorldPickups:
     case FeatureCapability::SceneParticle:
     case FeatureCapability::SceneCutscene:
     case FeatureCapability::BulletAssistPedCollision:
@@ -177,6 +183,7 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::VehicleEvents:
     case FeatureCapability::BulletAssistTracking:
     case FeatureCapability::BulletAssistThroughWalls:
+    case FeatureCapability::BulletAssistHardLock:
     case FeatureCapability::BulletAssistPedBounds:
     case FeatureCapability::BulletAssistVehicleBounds:
     case FeatureCapability::WorldTime:
@@ -201,6 +208,7 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::PlayerRuntimeEffects:
     case FeatureCapability::VehicleBasic:
     case FeatureCapability::VehicleColors:
+    case FeatureCapability::VehicleCheats:
     case FeatureCapability::BulletAssistPedCollision:
     case FeatureCapability::BulletAssistPedSkeleton:
     case FeatureCapability::BulletAssistVehicleCollision:
@@ -249,6 +257,7 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::PlayerRuntimeEffects:
     case FeatureCapability::VehicleBasic:
     case FeatureCapability::VehicleColors:
+    case FeatureCapability::VehicleCheats:
     case FeatureCapability::WorldPickups:
         return CapabilitySupport::Partial;
     default:

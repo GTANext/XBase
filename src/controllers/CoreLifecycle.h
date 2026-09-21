@@ -15,6 +15,7 @@
 #include <XBase/Camera.h>
 #include <XBase/Cheats.h>
 #include <XBase/VehicleEffects.h>
+#include <XBase/WebView.h>
 
 #include <cstddef>
 #include <iterator>
@@ -26,6 +27,7 @@ using InitializationCheck = bool (*)();
 
 inline void Noop() {}
 inline bool Initialized() { return true; }
+inline void WebViewDomainInit() { WebView::Init(); }
 
 struct DomainLifecycle {
     Domain domain;
@@ -50,6 +52,7 @@ inline const DomainLifecycle kDomains[] = {
     {Domain::Camera,       Noop,               Initialized,                  Camera::NotifyGameInit,  Camera::Process,       Camera::Shutdown},
     {Domain::Cheats,       Cheats::Init,       Initialized,                  Cheats::NotifyGameInit,  Cheats::Process,       Cheats::Shutdown},
     {Domain::VehicleEffects, VehicleEffects::Init, Initialized,              VehicleEffects::NotifyGameInit, VehicleEffects::Process, VehicleEffects::Shutdown},
+    {Domain::WebView,      WebViewDomainInit, WebView::IsInitialized,       WebView::NotifyGameInit, WebView::Process,     WebView::Shutdown},
 };
 
 inline bool IsEnabled(DomainMask mask, Domain domain) {
@@ -71,6 +74,7 @@ inline Capability DomainCapability(Domain domain) {
     case Domain::Camera: return Capability::Camera;
     case Domain::Cheats: return Capability::Cheats;
     case Domain::VehicleEffects: return Capability::VehicleEffects;
+    case Domain::WebView: return Capability::WebView;
     }
     return Capability::Player;
 }

@@ -636,19 +636,26 @@ bool MenuSurfaceSlider(const char* label, int& value, int minValue, int maxValue
 }
 
 bool MenuSurfaceInput(const char* label, float& value, float step, float fastStep, const char* format) {
-    (void)step;
-    (void)fastStep;
-    return MenuSurfaceSlider(label, value, -10000.0f, 10000.0f, format);
+    char valueText[32];
+    std::snprintf(valueText, sizeof(valueText), format ? format : "%.1f", value);
+    char rightText[48];
+    std::snprintf(rightText, sizeof(rightText), "< %s >", valueText);
+    const MenuSurfaceRowResult row = DrawMenuSurfaceRow(label, rightText, true);
+    const float activeStep = ImGui::GetIO().KeyShift && fastStep != 0.0f ? fastStep : step;
+    const float previous = value;
+    if (row.stepLeft) value -= activeStep;
+    if (row.stepRight) value += activeStep;
+    return value != previous;
 }
 
 bool MenuSurfaceInput(const char* label, int& value, int step, int fastStep) {
-    (void)fastStep;
     char rightText[32];
     std::snprintf(rightText, sizeof(rightText), "< %d >", value);
     const MenuSurfaceRowResult row = DrawMenuSurfaceRow(label, rightText, true);
+    const int activeStep = ImGui::GetIO().KeyShift && fastStep != 0 ? fastStep : step;
     const int previous = value;
-    if (row.stepLeft) value -= step;
-    if (row.stepRight) value += step;
+    if (row.stepLeft) value -= activeStep;
+    if (row.stepRight) value += activeStep;
     return value != previous;
 }
 
@@ -866,6 +873,22 @@ Vec2 GetCursorScreenPosition() {
 Vec2 GetContentAvailable() {
     const ImVec2 value = ImGui::GetContentRegionAvail();
     return {value.x, value.y};
+}
+
+Vec2 GetDisplaySize() {
+    const ImVec2 value = ImGui::GetIO().DisplaySize;
+    return {value.x, value.y};
+}
+
+Rect GetCurrentWindowRect() {
+    const ImVec2 position = ImGui::GetWindowPos();
+    const ImVec2 size = ImGui::GetWindowSize();
+    Rect rect{};
+    rect.left = position.x;
+    rect.top = position.y;
+    rect.right = position.x + size.x;
+    rect.bottom = position.y + size.y;
+    return rect;
 }
 
 namespace Canvas {

@@ -5,6 +5,7 @@
 #include "CClock.h"
 #include "CTimer.h"
 #include "CPlayerPed.h"
+#include "CPickup.h"
 #include "CPickups.h"
 #include "CStreaming.h"
 #include "CCarCtrl.h"
@@ -12,6 +13,7 @@
 #include "extensions/ScriptCommands.h"
 #include <cstdlib>
 #include <ctime>
+#include <vector>
 
 namespace {
 
@@ -32,6 +34,52 @@ bool s_hasFreezeFlagSnapshot = false;
 unsigned char s_savedFreezeFlag = 0;
 bool s_hasUnderWaternessSnapshot = false;
 float s_savedUnderWaterness = 0.0f;
+
+std::vector<int> s_trackedPickups;
+int s_lastPickupHandle = -1;
+CVector s_lastPickupPosition;
+
+unsigned char NormalizePickupType(unsigned int type) {
+    if (type > PICKUP_ONCE_FOR_MISSION) return PICKUP_ONCE;
+    return static_cast<unsigned char>(type);
+}
+
+int CreatePickup(const XBase::Types::PickupOptions& options, const CVector& position) {
+    const int model = static_cast<int>(options.modelId);
+    if (model <= 0) return -1;
+
+    CStreaming::RequestModel(model, PRIORITY_REQUEST);
+    CStreaming::LoadAllRequestedModels(false);
+    const int handle = CPickups::GenerateNewOne(
+        position,
+        static_cast<unsigned int>(model),
+        NormalizePickupType(options.type),
+        options.quantity,
+        options.moneyPerDay,
+        options.empty,
+        nullptr);
+    plugin::Command<plugin::Commands::MARK_MODEL_AS_NO_LONGER_NEEDED>(model);
+    if (handle >= 0) {
+        s_trackedPickups.push_back(handle);
+    }
+    return handle;
+}
+
+bool UntrackPickup(int handle) {
+    for (auto it = s_trackedPickups.begin(); it != s_trackedPickups.end(); ++it) {
+        if (*it == handle) {
+            s_trackedPickups.erase(it);
+            return true;
+        }
+    }
+    return false;
+}
+
+void ResetPickupTracking() {
+    s_trackedPickups.clear();
+    s_lastPickupHandle = -1;
+    s_lastPickupPosition = {};
+}
 
 void CaptureClockInterval() {
     if (s_hasClockIntervalSnapshot) return;
@@ -131,6 +179,7 @@ void NotifyGameInit() {
     s_hasClockIntervalSnapshot = false;
     s_hasFreezeFlagSnapshot = false;
     s_hasUnderWaternessSnapshot = false;
+    ResetPickupTracking();
 }
 
 void Shutdown() {
@@ -146,6 +195,7 @@ void Shutdown() {
         CWeather::UnderWaterness = s_savedUnderWaterness;
         s_hasUnderWaternessSnapshot = false;
     }
+    ResetPickupTracking();
 }
 
 void Process() {
@@ -382,32 +432,53 @@ int SpawnPickup(const Types::PickupOptions& options) {
     CPlayerPed* player = FindPlayerPed();
     if (!player) return -1;
 
-    CVector pos = player->GetPosition();
-    pos.x += 3.0f;
+    CVector position;
+    plugin::Command<plugin::Commands::GET_OFFSET_FROM_CHAR_IN_WORLD_COORDS>(
+        CPools::GetPedRef(player), 0.0f, 2.0f, 0.0f,
+        &position.x, &position.y, &position.z);
+    position.z += 0.2f;
 
-    CStreaming::RequestModel(static_cast<int>(options.modelId), PRIORITY_REQUEST);
-    CStreaming::LoadAllRequestedModels(false);
-
-    int handle = -1;
-    plugin::Command<plugin::Commands::CREATE_PICKUP>(
-        static_cast<int>(options.modelId),
-        options.type,
-        options.quantity,
-        pos.x, pos.y, pos.z,
-        &handle
-    );
-
+    const int handle = CreatePickup(options, position);
     if (handle >= 0) {
-        plugin::Command<plugin::Commands::MARK_MODEL_AS_NO_LONGER_NEEDED>(static_cast<int>(options.modelId));
+        s_lastPickupHandle = handle;
+        s_lastPickupPosition = position;
     }
     return handle;
 }
 
-bool UpdateLastPickup(const Types::PickupOptions&) { return false; }
-bool RemoveLastPickup() { return false; }
+bool UpdateLastPickup(const Types::PickupOptions& options) {
+    if (s_lastPickupHandle < 0) return false;
+
+    CPickups::RemovePickUp(s_lastPickupHandle);
+    UntrackPickup(s_lastPickupHandle);
+
+    const int handle = CreatePickup(options, s_lastPickupPosition);
+    if (handle < 0) {
+        s_lastPickupHandle = -1;
+        return false;
+    }
+    s_lastPickupHandle = handle;
+    return true;
+}
+
+bool RemoveLastPickup() {
+    if (s_lastPickupHandle < 0) return false;
+
+    CPickups::RemovePickUp(s_lastPickupHandle);
+    UntrackPickup(s_lastPickupHandle);
+    s_lastPickupHandle = -1;
+    return true;
+}
 
 bool RemoveTrackedPickups() {
-    CPickups::RemoveMissionPickUps();
+    for (int handle : s_trackedPickups) {
+        CPickups::RemovePickUp(handle);
+    }
+    if (s_lastPickupHandle >= 0 && !UntrackPickup(s_lastPickupHandle)) {
+        CPickups::RemovePickUp(s_lastPickupHandle);
+    }
+    s_lastPickupHandle = -1;
+    s_trackedPickups.clear();
     return true;
 }
 

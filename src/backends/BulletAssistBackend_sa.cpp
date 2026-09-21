@@ -1,11 +1,15 @@
 #include "BulletAssistBackend.h"
+#include "RuntimeGuard.h"
 #include "common.h"
 
 #include <XBase/Core.h>
 #include <XBase/Ped.h>
 #include "CCamera.h"
+#include "CColBox.h"
 #include "CColModel.h"
 #include "CColPoint.h"
+#include "CColSphere.h"
+#include "CCollisionData.h"
 #include "CEntity.h"
 #include "CModelInfo.h"
 #include "CPad.h"
@@ -23,6 +27,7 @@
 #include "eVehicleType.h"
 #include "imgui.h"
 #include "kiero/minhook/MinHook.h"
+#include "RenderWare.h"
 
 #include <algorithm>
 #include <atomic>
@@ -43,6 +48,8 @@ constexpr std::uintptr_t kFireInstantHitAddress = 0x73FB10;
 constexpr std::uintptr_t kFireInstantHitFromCarAddress = 0x73EC40;
 constexpr std::uintptr_t kProcessLineOfSightAddress = 0x56BA00;
 constexpr float kPi = 3.14159265f;
+constexpr float kMaxPitchUp = 1.05f;
+constexpr float kMaxPitchDown = 1.49f;
 
 ProcessLineOfSightFn s_originalProcessLineOfSight = nullptr;
 FireInstantHitFn s_originalFireInstantHit = nullptr;
@@ -66,6 +73,7 @@ struct Candidate {
 std::vector<Candidate> s_candidates;
 CVector s_shotTarget{};
 bool s_hasShotTarget = false;
+CPed* s_hardLockPed = nullptr;
 
 struct CallbackScope {
     bool active = false;
@@ -127,7 +135,8 @@ bool IsRelationEnabled(Relation relation) {
 CVector BonePosition(CPed* ped, ePedBones bone) {
     RwV3d output{};
     ped->GetBonePosition(output, static_cast<unsigned int>(bone), false);
-    return {output.x, output.y, output.z};
+    // GetBonePosition returns object space so move it into world space with the ped matrix
+    return ped->TransformFromObjectSpace(CVector(output.x, output.y, output.z));
 }
 
 bool BoneValid(const CVector& position) {
@@ -250,7 +259,7 @@ void BeginShot() {
     ++s_fireDepth;
     if (s_fireDepth != 1) return;
     s_hasShotTarget = false;
-    if (!s_config.tracking) return;
+    if (!s_config.tracking || !RuntimeGuard::IsRuntimeSafe()) return;
     CollectCandidates();
     if (s_candidates.empty()) return;
     const std::size_t index = s_candidates.size() == 1
@@ -289,14 +298,14 @@ bool __cdecl HookProcessLineOfSight(
     bool seeThrough, bool cameraIgnore, bool shootThrough) {
     CallbackScope callback;
     if (!s_originalProcessLineOfSight) return false;
-    if (!callback.active || s_fireDepth <= 0 || cameraIgnore) {
+    if (!callback.active || s_fireDepth <= 0 || cameraIgnore || !RuntimeGuard::IsRuntimeSafe()) {
         return s_originalProcessLineOfSight(origin, target, point, entity, buildings, vehicles,
             peds, objects, dummies, seeThrough, cameraIgnore, shootThrough);
     }
 
-    const CVector redirected = s_config.tracking && s_hasShotTarget
-        ? ExtendPast(origin, s_shotTarget) : target;
-    if (s_config.tracking && s_hasShotTarget) {
+    const bool tracked = s_config.tracking && s_hasShotTarget;
+    const CVector redirected = tracked ? ExtendPast(origin, s_shotTarget) : target;
+    if (tracked) {
         peds = true;
     }
     if (s_config.throughWalls) {
@@ -304,8 +313,17 @@ bool __cdecl HookProcessLineOfSight(
         objects = false;
         dummies = false;
     }
-    return s_originalProcessLineOfSight(origin, redirected, point, entity, buildings, vehicles,
+    const bool hit = s_originalProcessLineOfSight(origin, redirected, point, entity, buildings, vehicles,
         peds, objects, dummies, seeThrough, cameraIgnore, shootThrough);
+    if (hit && (tracked || s_config.throughWalls) && entity
+        && entity->m_nType == ENTITY_TYPE_VEHICLE) {
+        CVehicle* vehicle = static_cast<CVehicle*>(entity);
+        if (vehicle->m_fHealth <= 0.0f) {
+            entity = nullptr;
+            return false;
+        }
+    }
+    return hit;
 }
 
 bool __fastcall HookFireInstantHit(
@@ -382,6 +400,129 @@ bool WorldToScreen(const CVector& world, ImVec2& screen) {
     return true;
 }
 
+float NormalizeAngle(float angle) {
+    while (angle > kPi) angle -= 2.0f * kPi;
+    while (angle < -kPi) angle += 2.0f * kPi;
+    return angle;
+}
+
+float LerpAngle(float from, float to, float factor) {
+    return from + NormalizeAngle(to - from) * factor;
+}
+
+void SetCamFrontFromAngles(CCam& camera) {
+    const float cosVertical = std::cos(camera.m_fVerticalAngle);
+    const float sinVertical = std::sin(camera.m_fVerticalAngle);
+    const float cosHorizontal = std::cos(camera.m_fHorizontalAngle);
+    const float sinHorizontal = std::sin(camera.m_fHorizontalAngle);
+    camera.m_vecFront = CVector(
+        -cosHorizontal * cosVertical, -sinHorizontal * cosVertical, sinVertical);
+    camera.m_fAlphaSpeed = 0.0f;
+    camera.m_fBetaSpeed = 0.0f;
+}
+
+void ApplyHardLockAim(const CVector& worldTarget) {
+    const int index = TheCamera.m_nActiveCam;
+    if (index < 0 || index > 2) return;
+    CCam& camera = TheCamera.m_aCams[index];
+
+    float blend = 0.55f;
+    if (CTimer::ms_fTimeStep > 0.0f) {
+        blend = std::min(1.0f, 0.35f * CTimer::ms_fTimeStep);
+    }
+    if (blend < 0.22f) blend = 0.22f;
+
+    ImVec2 screen{};
+    if (WorldToScreen(worldTarget, screen)) {
+        const float halfWidth = std::max(1.0f, static_cast<float>(RsGlobal.maximumWidth) * 0.5f);
+        const float halfHeight = std::max(1.0f, static_cast<float>(RsGlobal.maximumHeight) * 0.5f);
+        const float errorX = screen.x - halfWidth;
+        const float errorY = screen.y - halfHeight;
+
+        float fovDegrees = camera.m_fFOV;
+        if (fovDegrees < 5.0f || fovDegrees > 170.0f || !std::isfinite(fovDegrees)) {
+            fovDegrees = 70.0f;
+        }
+        const float halfFovY = fovDegrees * 0.5f * (kPi / 180.0f);
+        const float aspect = halfWidth / halfHeight;
+        const float halfFovX = std::atan(std::tan(halfFovY) * aspect);
+
+        const float horizontal = camera.m_fHorizontalAngle - (errorX / halfWidth) * halfFovX;
+        const float vertical = std::clamp(
+            camera.m_fVerticalAngle - (errorY / halfHeight) * halfFovY,
+            -kMaxPitchDown, kMaxPitchUp);
+
+        camera.m_fHorizontalAngle = LerpAngle(camera.m_fHorizontalAngle, horizontal, blend);
+        camera.m_fVerticalAngle = LerpAngle(camera.m_fVerticalAngle, vertical, blend);
+        SetCamFrontFromAngles(camera);
+        return;
+    }
+
+    const float deltaX = worldTarget.x - camera.m_vecSource.x;
+    const float deltaY = worldTarget.y - camera.m_vecSource.y;
+    const float deltaZ = worldTarget.z - camera.m_vecSource.z;
+    const float length = std::sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
+    if (length < 0.05f || !std::isfinite(length)) return;
+
+    const float inverse = 1.0f / length;
+    const float vertical = std::clamp(
+        std::asin(std::clamp(deltaZ * inverse, -1.0f, 1.0f)), -kMaxPitchDown, kMaxPitchUp);
+    const float horizontal = std::atan2(-deltaY * inverse, -deltaX * inverse);
+
+    camera.m_fHorizontalAngle = LerpAngle(camera.m_fHorizontalAngle, horizontal, blend);
+    camera.m_fVerticalAngle = LerpAngle(camera.m_fVerticalAngle, vertical, blend);
+    SetCamFrontFromAngles(camera);
+}
+
+void ClearHardLock() {
+    s_hardLockPed = nullptr;
+}
+
+CPed* ResolveHardLockPed() {
+    if (s_candidates.empty()) {
+        ClearHardLock();
+        return nullptr;
+    }
+    if (s_hardLockPed) {
+        for (const Candidate& candidate : s_candidates) {
+            if (candidate.ped == s_hardLockPed) return s_hardLockPed;
+        }
+    }
+    for (const Candidate& candidate : s_candidates) {
+        if (candidate.ped) {
+            s_hardLockPed = candidate.ped;
+            return s_hardLockPed;
+        }
+    }
+    ClearHardLock();
+    return nullptr;
+}
+
+bool PlayerWantsHardLockInput() {
+    CPad* pad = CPad::GetPad(0);
+    if (!pad) return false;
+    if (pad->GetTarget()) return true;
+    if (pad->NewState.ButtonCircle != 0) return true;
+    if (CPad::NewMouseControllerState.lmb) return true;
+    return false;
+}
+
+void ApplyHardLock(const BulletAssist::Config& config) {
+    if (!config.hardLock || !config.tracking || !PlayerWantsHardLockInput()) {
+        if (!config.hardLock || !config.tracking) ClearHardLock();
+        return;
+    }
+    CPed* ped = ResolveHardLockPed();
+    if (!ped) return;
+    for (const Candidate& candidate : s_candidates) {
+        if (candidate.ped == ped) {
+            ApplyHardLockAim(candidate.position);
+            return;
+        }
+    }
+    ApplyHardLockAim(PedAimPosition(ped));
+}
+
 void DrawLine(ImDrawList* drawList, const CVector& from, const CVector& to, ImU32 color) {
     ImVec2 screenFrom{};
     ImVec2 screenTo{};
@@ -408,6 +549,67 @@ void DrawEntityBounds(ImDrawList* drawList, CEntity* entity, ImU32 color) {
     for (const auto& edge : edges) DrawLine(drawList, corners[edge[0]], corners[edge[1]], color);
 }
 
+void DrawLocalBoxWire(ImDrawList* drawList, CEntity* entity, const CVector& minimum, const CVector& maximum, ImU32 color) {
+    if (!entity) return;
+    CVector corners[8] = {
+        entity->TransformFromObjectSpace(CVector(minimum.x, minimum.y, minimum.z)),
+        entity->TransformFromObjectSpace(CVector(maximum.x, minimum.y, minimum.z)),
+        entity->TransformFromObjectSpace(CVector(maximum.x, maximum.y, minimum.z)),
+        entity->TransformFromObjectSpace(CVector(minimum.x, maximum.y, minimum.z)),
+        entity->TransformFromObjectSpace(CVector(minimum.x, minimum.y, maximum.z)),
+        entity->TransformFromObjectSpace(CVector(maximum.x, minimum.y, maximum.z)),
+        entity->TransformFromObjectSpace(CVector(maximum.x, maximum.y, maximum.z)),
+        entity->TransformFromObjectSpace(CVector(minimum.x, maximum.y, maximum.z)),
+    };
+    constexpr int edges[12][2] = {
+        {0,1},{1,2},{2,3},{3,0},{4,5},{5,6},{6,7},{7,4},{0,4},{1,5},{2,6},{3,7}
+    };
+    for (const auto& edge : edges) DrawLine(drawList, corners[edge[0]], corners[edge[1]], color);
+}
+
+void DrawLocalSphereWire(ImDrawList* drawList, CEntity* entity, const CVector& center, float radius, ImU32 color) {
+    if (!entity || radius < 0.01f) return;
+    constexpr int segments = 12;
+    CVector previousXY{};
+    CVector previousXZ{};
+    CVector previousYZ{};
+    for (int index = 0; index <= segments; ++index) {
+        const float angle = kPi * 2.0f * static_cast<float>(index) / static_cast<float>(segments);
+        const float cosAngle = std::cos(angle);
+        const float sinAngle = std::sin(angle);
+        const CVector pointXY = entity->TransformFromObjectSpace(
+            CVector(center.x + radius * cosAngle, center.y + radius * sinAngle, center.z));
+        const CVector pointXZ = entity->TransformFromObjectSpace(
+            CVector(center.x + radius * cosAngle, center.y, center.z + radius * sinAngle));
+        const CVector pointYZ = entity->TransformFromObjectSpace(
+            CVector(center.x, center.y + radius * cosAngle, center.z + radius * sinAngle));
+        if (index > 0) {
+            DrawLine(drawList, previousXY, pointXY, color);
+            DrawLine(drawList, previousXZ, pointXZ, color);
+            DrawLine(drawList, previousYZ, pointYZ, color);
+        }
+        previousXY = pointXY;
+        previousXZ = pointXZ;
+        previousYZ = pointYZ;
+    }
+}
+
+void DrawCollision(ImDrawList* drawList, CEntity* entity, ImU32 boxColor, ImU32 sphereColor) {
+    CColModel* collision = entity ? entity->GetColModel() : nullptr;
+    if (!collision || !collision->m_pColData) return;
+    CCollisionData* data = collision->m_pColData;
+    if (data->m_pBoxes) {
+        for (unsigned short index = 0; index < data->m_nNumBoxes; ++index) {
+            DrawLocalBoxWire(drawList, entity, data->m_pBoxes[index].m_vecMin, data->m_pBoxes[index].m_vecMax, boxColor);
+        }
+    }
+    if (data->m_pSpheres) {
+        for (unsigned short index = 0; index < data->m_nNumSpheres; ++index) {
+            DrawLocalSphereWire(drawList, entity, data->m_pSpheres[index].m_vecCenter, data->m_pSpheres[index].m_fRadius, sphereColor);
+        }
+    }
+}
+
 void DrawBoneLine(ImDrawList* drawList, CPed* ped, ePedBones from, ePedBones to, ImU32 color) {
     const CVector fromPosition = BonePosition(ped, from);
     const CVector toPosition = BonePosition(ped, to);
@@ -417,20 +619,25 @@ void DrawBoneLine(ImDrawList* drawList, CPed* ped, ePedBones from, ePedBones to,
 
 void DrawSkeleton(ImDrawList* drawList, CPed* ped, ImU32 color) {
     DrawBoneLine(drawList, ped, BONE_PELVIS, BONE_SPINE1, color);
-    DrawBoneLine(drawList, ped, BONE_SPINE1, BONE_NECK, color);
+    DrawBoneLine(drawList, ped, BONE_SPINE1, BONE_UPPERTORSO, color);
+    DrawBoneLine(drawList, ped, BONE_UPPERTORSO, BONE_NECK, color);
     DrawBoneLine(drawList, ped, BONE_NECK, BONE_HEAD, color);
-    DrawBoneLine(drawList, ped, BONE_NECK, BONE_LEFTSHOULDER, color);
+    DrawBoneLine(drawList, ped, BONE_UPPERTORSO, BONE_LEFTSHOULDER, color);
     DrawBoneLine(drawList, ped, BONE_LEFTSHOULDER, BONE_LEFTELBOW, color);
-    DrawBoneLine(drawList, ped, BONE_LEFTELBOW, BONE_LEFTHAND, color);
-    DrawBoneLine(drawList, ped, BONE_NECK, BONE_RIGHTSHOULDER, color);
+    DrawBoneLine(drawList, ped, BONE_LEFTELBOW, BONE_LEFTWRIST, color);
+    DrawBoneLine(drawList, ped, BONE_LEFTWRIST, BONE_LEFTHAND, color);
+    DrawBoneLine(drawList, ped, BONE_UPPERTORSO, BONE_RIGHTSHOULDER, color);
     DrawBoneLine(drawList, ped, BONE_RIGHTSHOULDER, BONE_RIGHTELBOW, color);
-    DrawBoneLine(drawList, ped, BONE_RIGHTELBOW, BONE_RIGHTHAND, color);
+    DrawBoneLine(drawList, ped, BONE_RIGHTELBOW, BONE_RIGHTWRIST, color);
+    DrawBoneLine(drawList, ped, BONE_RIGHTWRIST, BONE_RIGHTHAND, color);
     DrawBoneLine(drawList, ped, BONE_PELVIS, BONE_LEFTHIP, color);
     DrawBoneLine(drawList, ped, BONE_LEFTHIP, BONE_LEFTKNEE, color);
-    DrawBoneLine(drawList, ped, BONE_LEFTKNEE, BONE_LEFTFOOT, color);
+    DrawBoneLine(drawList, ped, BONE_LEFTKNEE, BONE_LEFTANKLE, color);
+    DrawBoneLine(drawList, ped, BONE_LEFTANKLE, BONE_LEFTFOOT, color);
     DrawBoneLine(drawList, ped, BONE_PELVIS, BONE_RIGHTHIP, color);
     DrawBoneLine(drawList, ped, BONE_RIGHTHIP, BONE_RIGHTKNEE, color);
-    DrawBoneLine(drawList, ped, BONE_RIGHTKNEE, BONE_RIGHTFOOT, color);
+    DrawBoneLine(drawList, ped, BONE_RIGHTKNEE, BONE_RIGHTANKLE, color);
+    DrawBoneLine(drawList, ped, BONE_RIGHTANKLE, BONE_RIGHTFOOT, color);
 }
 }
 
@@ -452,8 +659,15 @@ bool Init() {
 
 void Process(const BulletAssist::Config& config) {
     s_config = config;
+    if (!RuntimeGuard::IsRuntimeSafe()) {
+        s_candidates.clear();
+        s_hasShotTarget = false;
+        ClearHardLock();
+        return;
+    }
     if (s_config.tracking) CollectCandidates();
     else s_candidates.clear();
+    ApplyHardLock(s_config);
 }
 
 void Shutdown() {
@@ -468,11 +682,12 @@ void Shutdown() {
     s_candidates.clear();
     s_fireDepth = 0;
     s_hasShotTarget = false;
+    s_hardLockPed = nullptr;
     s_config = {};
 }
 
 void Draw(const BulletAssist::Config& config) {
-    if (!Core::IsWorldReady()) return;
+    if (!Core::IsWorldReady() || !RuntimeGuard::IsRuntimeSafe()) return;
     ImDrawList* drawList = ImGui::GetBackgroundDrawList();
     if (!drawList) return;
     CPlayerPed* player = FindPlayerPed();
@@ -490,14 +705,17 @@ void Draw(const BulletAssist::Config& config) {
         for (int index = 0; index < CPools::ms_pPedPool->m_nSize; ++index) {
             CPed* ped = CPools::ms_pPedPool->GetAt(index);
             if (!IsValidPed(ped, player)) continue;
-            if (config.drawPedBounds || config.drawPedCollision) DrawEntityBounds(drawList, ped, IM_COL32(80, 220, 120, 230));
+            if (config.drawPedBounds) DrawEntityBounds(drawList, ped, IM_COL32(80, 220, 120, 230));
+            if (config.drawPedCollision) DrawCollision(drawList, ped, IM_COL32(60, 180, 255, 220), IM_COL32(120, 200, 255, 200));
             if (config.drawPedSkeleton) DrawSkeleton(drawList, ped, IM_COL32(255, 200, 60, 230));
         }
     }
     if (CPools::ms_pVehiclePool && (config.drawVehicleBounds || config.drawVehicleCollision)) {
         for (int index = 0; index < CPools::ms_pVehiclePool->m_nSize; ++index) {
             CVehicle* vehicle = CPools::ms_pVehiclePool->GetAt(index);
-            if (vehicle && vehicle->m_fHealth > 0.0f) DrawEntityBounds(drawList, vehicle, IM_COL32(255, 140, 60, 230));
+            if (!vehicle || vehicle->m_fHealth <= 0.0f) continue;
+            if (config.drawVehicleBounds) DrawEntityBounds(drawList, vehicle, IM_COL32(255, 140, 60, 230));
+            if (config.drawVehicleCollision) DrawCollision(drawList, vehicle, IM_COL32(255, 90, 90, 220), IM_COL32(255, 160, 120, 200));
         }
     }
 }

@@ -149,16 +149,37 @@ void Process() {
 }
 
 bool PlayAnimation(const char* group, const char* name, bool loop) {
+    AnimationOptions options;
+    options.loop = loop;
+    return PlayAnimation(group, name, options);
+}
+
+bool PlayAnimation(const char* group, const char* name, const AnimationOptions& options) {
     CPlayerPed* player = FindPlayerPed();
-    if (!player || !group || !name) return false;
+    if (!player || !group || !name || group[0] == '\0' || name[0] == '\0') return false;
+
+    CPed* target = player;
+    if (options.onTargetPed) {
+        target = player->m_pPlayerTargettedPed;
+        if (!target || !CPools::ms_pPedPool || !CPools::ms_pPedPool->IsObjectValid(target)) {
+            return false;
+        }
+    }
+
     if (std::strcmp(group, "PED") != 0) {
         KeepAnimationGroupLoaded(group);
     }
-    const int hplayer = CPools::GetPedRef(player);
-    const int flags = loop ? 1 : 0;
-    plugin::Command<plugin::Commands::TASK_PLAY_ANIM>(hplayer, name, group, 8.0f, flags, 0, 0, 0, 0);
+    const int targetHandle = CPools::GetPedRef(target);
+    const int flags = options.loop ? 1 : 0;
+    if (options.secondary) {
+        plugin::Command<plugin::Commands::TASK_PLAY_ANIM_SECONDARY>(
+            targetHandle, name, group, 8.0f, flags, 0, 0, 0, 0);
+    } else {
+        plugin::Command<plugin::Commands::TASK_PLAY_ANIM>(
+            targetHandle, name, group, 8.0f, flags, 0, 0, 0, 0);
+    }
     if (std::strcmp(group, "PED") != 0) {
-        ScheduleAnimationGroupUnload(group, loop ? 60000 : 8000);
+        ScheduleAnimationGroupUnload(group, options.loop ? 60000 : 8000);
     }
     return true;
 }

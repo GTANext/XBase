@@ -40,6 +40,8 @@ Build.bat Release --no-pause
 Build.bat Debug --no-pause
 ```
 
+批处理文件必须保持 CRLF 行尾，`cmd` 在 LF 行尾下会找不到 `call :label` 标签。仓库通过 `.gitattributes` 固定 `*.bat` 为 CRLF；若本地被改成 LF，重新检出或转换行尾后再构建。
+
 `Build.bat` 会重新生成 VS2022 工程并构建以下静态库：
 
 | 库 | 职责 |
@@ -137,11 +139,12 @@ linkoptions { "/WHOLEARCHIVE:XBaseBootstrap.lib" }
 | Teleport | ✅ | ◐ | ◐ |
 | Scene | ◐ | ✖ | ✖ |
 | Camera | ✅ | ✖ | ✖ |
-| Cheats | ✅ | ✖ | ✖ |
+| Cheats | ✅ | ◐ | ◐ |
 | VehicleEffects | ✅ | ✖ | ✖ |
 | BulletAssist | ◐ | ◐ | ✖ |
 | Hooks | ✅ | ✅ | ✅ |
 | Ui | ✅ | ✅ | ✅ |
+| WebView | ✅ | ✅ | ✅ |
 | Overlay | ◐ | ✖ | ✖ |
 
 ### FeatureCapability
@@ -167,14 +170,15 @@ linkoptions { "/WHOLEARCHIVE:XBaseBootstrap.lib" }
 | VehicleBasic | ✅ | ◐ | ◐ |
 | VehicleColors | ✅ | ◐ | ◐ |
 | VehicleDoors / Spawn / SpawnSession / Delete / Events | ✅ | ✅ | ✅ |
-| VehiclePopDoors / AlwaysSkidMarks / DisableParticles / DriverTargetable / HeatSeekingTargetable / PetrolTankWeakPoint / SirenOrAlarm / TakeLessDamage / TrafficDensity / AutoDrive / Paintjob / Upgrades / Cheats | ✅ | ✖ | ✖ |
+| VehiclePopDoors / AlwaysSkidMarks / DisableParticles / DriverTargetable / HeatSeekingTargetable / PetrolTankWeakPoint / SirenOrAlarm / TakeLessDamage / TrafficDensity / AutoDrive / Paintjob / Upgrades | ✅ | ✖ | ✖ |
+| VehicleCheats | ✅ | ◐ | ◐ |
 
 #### 世界
 
 | Feature | SA | VC | III |
 | --- | :-: | :-: | :-: |
 | WorldTime / Weather / Gravity / GameSpeed / FpsLimit / DaysPassed / FreezeTime / FasterClock / DisableReplay / DisableCheats | ✅ | ✅ | ✅ |
-| WorldPickups | ◐ | ◐ | ◐ |
+| WorldPickups | ✅ | ◐ | ◐ |
 | WorldForbiddenAreaWanted / FreePayNSpray / NoWaterPhysics / SolidWater | ✅ | ✖ | ✖ |
 
 #### 武器 / 传送 / 视觉
@@ -202,7 +206,7 @@ linkoptions { "/WHOLEARCHIVE:XBaseBootstrap.lib" }
 
 | Feature | SA | VC | III |
 | --- | :-: | :-: | :-: |
-| BulletAssistTracking / ThroughWalls / PedBounds / VehicleBounds | ✅ | ✅ | ✖ |
+| BulletAssistTracking / ThroughWalls / HardLock / PedBounds / VehicleBounds | ✅ | ✅ | ✖ |
 | BulletAssistPedCollision / PedSkeleton / VehicleCollision / FireSuppression | ◐ | ◐ | ✖ |
 
 > 说明：以上矩阵由 `Capabilities.cpp` 静态声明，运行时以实际后端行为为准；`Partial` 表示页面/接口可用，但部分动作受限（如 VC/III 的 `WorldPickups` 走脚本指令路径、`PlayerRuntimeEffects` 仅覆盖部分开关）。

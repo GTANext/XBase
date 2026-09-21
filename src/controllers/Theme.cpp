@@ -250,6 +250,10 @@ void ApplyPreset(Preset preset) {
             style.Colors[ImGuiCol_TabActive]             = ImVec4(0.12f, 0.18f, 0.28f, 1.00f);
             break;
 
+        case Preset::Custom:
+            ApplyCustom(s_custom);
+            break;
+
         default: break;
     }
 

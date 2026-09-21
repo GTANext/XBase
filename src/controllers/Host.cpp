@@ -1,6 +1,7 @@
 #include <XBase/Host.h>
 
 #include "CHud.h"
+#include "RuntimeGuard.h"
 #include "plugin.h"
 
 #include <windows.h>
@@ -146,6 +147,7 @@ bool Install(const Callbacks& callbacks) {
     }
 
     if (subscribe) SubscribeGameInit();
+    Detail::RuntimeGuard::Init();
     return true;
 }
 
@@ -167,6 +169,7 @@ void Shutdown() {
         return s_state.activeCallbacks == 0;
     });
     s_state.callbacks = {};
+    Detail::RuntimeGuard::Shutdown();
 }
 
 bool IsInstalled() {
