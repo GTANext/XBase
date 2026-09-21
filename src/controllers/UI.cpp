@@ -357,6 +357,12 @@ void Child(const char* id, const DrawFn& drawFn, Vec2 size, bool border) {
     ImGui::EndChild();
 }
 
+void ChildNoScroll(const char* id, const DrawFn& drawFn, Vec2 size, bool border) {
+    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
+    if (ImGui::BeginChild(id ? id : "##fixedChild", ImVec2(size.x, size.y), border, flags) && drawFn) drawFn();
+    ImGui::EndChild();
+}
+
 void Disabled(bool disabled, const DrawFn& drawFn) {
     ImGui::BeginDisabled(disabled);
     if (drawFn) drawFn();
@@ -845,6 +851,31 @@ void SetClipboardText(const char* text) { ImGui::SetClipboardText(text ? text : 
 bool Selectable(const char* label, bool selected, Vec2 size) {
     return ImGui::Selectable(label, selected, 0, ImVec2(size.x, size.y));
 }
+
+// 整行可点、文字居中的列表项，导航这类需要对称排版的地方用它
+bool SelectableCentered(const char* label, bool selected, Vec2 size) {
+    if (!label) return false;
+
+    std::string identifier = label;
+    std::string visible = label;
+    const std::size_t marker = visible.find("##");
+    if (marker != std::string::npos) {
+        visible.resize(marker);
+    }
+
+    const ImVec2 textSize = ImGui::CalcTextSize(visible.c_str());
+    const float rowWidth = size.x > 0.0f ? size.x : ImGui::GetContentRegionAvail().x;
+    const float rowHeight = size.y > 0.0f ? size.y : ImGui::GetTextLineHeightWithSpacing();
+    const ImVec2 start = ImGui::GetCursorScreenPos();
+
+    const std::string id = "##" + identifier;
+    const bool clicked = ImGui::Selectable(id.c_str(), selected, 0, ImVec2(rowWidth, rowHeight));
+    const ImVec2 textPosition(
+        start.x + (rowWidth - textSize.x) * 0.5f,
+        start.y + (rowHeight - textSize.y) * 0.5f);
+    ImGui::GetWindowDrawList()->AddText(textPosition, ImGui::GetColorU32(ImGuiCol_Text), visible.c_str());
+    return clicked;
+}
 void Combo(const char* label, const char* preview, const DrawFn& drawFn) {
     if (!ImGui::BeginCombo(label ? label : "##combo", preview ? preview : "")) return;
     if (drawFn) drawFn();
@@ -869,6 +900,9 @@ Vec2 GetMousePosition() {
 Vec2 GetCursorScreenPosition() {
     const ImVec2 value = ImGui::GetCursorScreenPos();
     return {value.x, value.y};
+}
+void SetCursorScreenPos(Vec2 position) {
+    ImGui::SetCursorScreenPos(ImVec2(position.x, position.y));
 }
 Vec2 GetContentAvailable() {
     const ImVec2 value = ImGui::GetContentRegionAvail();
