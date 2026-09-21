@@ -260,8 +260,9 @@ LONG_PTR WindowStyleFor(XBase::Hooks::WindowMode mode) {
     return WS_OVERLAPPEDWINDOW | WS_VISIBLE | WS_CLIPSIBLINGS;
 }
 
-LONG_PTR WindowExStyleFor(XBase::Hooks::WindowMode mode) {
-    return mode == XBase::Hooks::WindowMode::Borderless ? WS_EX_TOPMOST : 0;
+// 不设 TOPMOST，否则游戏会一直压在别的程序之上，其他窗口无法覆盖
+LONG_PTR WindowExStyleFor(XBase::Hooks::WindowMode) {
+    return 0;
 }
 
 SIZE WindowSizeFor(XBase::Hooks::WindowMode mode, const SIZE& client) {
@@ -321,7 +322,7 @@ void ApplyWindowModeGeometry(HWND window, XBase::Hooks::WindowMode mode, SIZE& c
     SetWindowLongPtrW(window, GWL_STYLE, style);
     SetWindowLongPtrW(window, GWL_EXSTYLE, exStyle);
     SetWindowPos(
-        window, mode == XBase::Hooks::WindowMode::Borderless ? HWND_TOPMOST : HWND_NOTOPMOST,
+        window, HWND_NOTOPMOST,
         x, y, windowWidth, windowHeight,
         (moveWindow ? 0 : SWP_NOMOVE | SWP_NOSIZE) | SWP_FRAMECHANGED | SWP_NOOWNERZORDER);
 }
