@@ -6,6 +6,7 @@
 #include "CPed.h"
 #include "CStreaming.h"
 #include "CWorld.h"
+#include "CGame.h"
 #include "extensions/ScriptCommands.h"
 #include "plugin.h"
 
@@ -86,7 +87,7 @@ void SetPedsRiot(bool) {}
 void SetSlutMagnet(bool enable) { plugin::patch::Set<bool>(0xA10B5F, enable, false); }
 void SetGangsControl(bool) {}
 void SetGangsEverywhere(bool) {}
-void SetNoProstitutes(bool enable) { plugin::patch::Set<bool>(0xA10B99, enable, false); }
+void SetNoProstitutes(bool enable) { CGame::noProstitutes = enable; }
 void SetNastyLimbs(bool) {}
 void SetGangWarsActive(bool) {}
 void StartGangWar(bool) {}

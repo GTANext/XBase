@@ -1,6 +1,8 @@
 #include <XBase/Host.h>
+#include <XBase/Log.h>
 
 #include "CHud.h"
+#include "CMessages.h"
 #include "RuntimeGuard.h"
 #include "plugin.h"
 
@@ -10,6 +12,10 @@
 #include <mutex>
 
 namespace XBase::Host {
+
+// 在游戏的脚本事件里发出，避免在渲染回调内调用游戏 HUD
+void FlushPendingMessage();
+
 namespace {
 
 struct HostState {
@@ -26,6 +32,8 @@ std::mutex s_stateMutex;
 std::condition_variable s_callbacksIdle;
 std::mutex s_eventMutex;
 std::mutex s_lifecycleMutex;
+std::mutex s_messageMutex;
+std::string s_pendingMessage;
 
 void DispatchProcess();
 
@@ -88,6 +96,7 @@ void DispatchGameInit() {
 }
 
 void DispatchProcess() {
+    FlushPendingMessage();
     Invoke(&Callbacks::onProcess);
 }
 
@@ -175,6 +184,27 @@ void Shutdown() {
 bool IsInstalled() {
     std::lock_guard<std::mutex> lock(s_stateMutex);
     return s_state.installed;
+}
+
+bool QueueMessage(const char* message) {
+    if (!message || !message[0]) return false;
+    std::lock_guard<std::mutex> lock(s_messageMutex);
+    s_pendingMessage = message;
+    return true;
+}
+
+// 在游戏的脚本事件里发出，与刷武器等功能的提示走同一条已验证的路径
+void FlushPendingMessage() {
+    std::string message;
+    {
+        std::lock_guard<std::mutex> lock(s_messageMutex);
+        if (s_pendingMessage.empty()) return;
+        message.swap(s_pendingMessage);
+    }
+
+    XBase::Log::Info("Host: 发送游戏提示消息");
+    ShowMessage(message.c_str());
+    XBase::Log::Info("Host: 游戏提示消息已发送");
 }
 
 bool ShowMessage(const char* message) {

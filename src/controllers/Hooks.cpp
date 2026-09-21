@@ -52,17 +52,32 @@ ResetFn g_originalReset = nullptr;
 bool g_gameInputBlocked = false;
 IDirect3DDevice9* g_device = nullptr;
 
-// 场景相机地址与后处理入口，取自参考实现 III.VC.SA.WindowedMode
+// 显示模式表与场景相机地址，取自参考实现 III.VC.SA.WindowedMode
 #if defined(GTASA)
+constexpr std::uintptr_t kVideoModeListAddress = 0xC97C48;
 constexpr std::uintptr_t kSceneCameraAddress = 0xC1703C;
 constexpr std::uintptr_t kSetupBackBufferVertexAddress = 0x7043D0;
 #elif defined(GTAVC)
+constexpr std::uintptr_t kVideoModeListAddress = 0x7897D0;
 constexpr std::uintptr_t kSceneCameraAddress = 0x8100BC;
 constexpr std::uintptr_t kBlurOpenAddress = 0x55CE20;
 #elif defined(GTA3)
+constexpr std::uintptr_t kVideoModeListAddress = 0x662F18;
 constexpr std::uintptr_t kSceneCameraAddress = 0x72676C;
 constexpr std::uintptr_t kBlurOpenAddress = 0x50AE40;
 #endif
+
+// 平台显示模式表项，布局与参考实现的 DisplayMode 一致，
+// 前端菜单会按这张表里的分辨率排版，窗口模式下必须同步成客户区大小
+struct DisplayModeEntry {
+    unsigned int width;
+    unsigned int height;
+    unsigned int refreshRate;
+    unsigned int format;
+    unsigned int flags;
+};
+std::vector<DisplayModeEntry> g_windowModeVideoModeBackup;
+int g_windowModeVideoModeIndex = -1;
 
 // 游戏自身的呈现参数地址，取自参考实现 III.VC.SA.WindowedMode
 #if defined(GTASA)
@@ -523,6 +538,36 @@ void SyncGameDisplayState() {
     RsGlobal.screenWidth = windowed ? clientWidth : g_windowModeSavedScreenWidth;
     RsGlobal.screenHeight = windowed ? clientHeight : g_windowModeSavedScreenHeight;
 #endif
+
+    // 平台显示模式表决定前端菜单的排版尺寸，窗口模式下同步成客户区大小
+    auto** list = reinterpret_cast<DisplayModeEntry**>(kVideoModeListAddress);
+    if (!list || !*list) return;
+    const int count = static_cast<int>(RwEngineGetNumVideoModes());
+    const int index = static_cast<int>(RwEngineGetCurrentVideoMode());
+    if (count <= 0 || index < 0 || index >= count) return;
+
+    if (g_windowModeVideoModeBackup.empty()) {
+        g_windowModeVideoModeBackup.assign(*list, *list + count);
+    } else if (g_windowModeVideoModeIndex >= 0 && g_windowModeVideoModeIndex < count
+        && g_windowModeVideoModeIndex < static_cast<int>(g_windowModeVideoModeBackup.size())) {
+        (*list)[g_windowModeVideoModeIndex] = g_windowModeVideoModeBackup[g_windowModeVideoModeIndex];
+    }
+    g_windowModeVideoModeIndex = index;
+
+    DisplayModeEntry& mode = (*list)[index];
+    if (windowed) {
+        mode.width = static_cast<unsigned int>(clientWidth);
+        mode.height = static_cast<unsigned int>(clientHeight);
+        mode.refreshRate = 0;
+#if defined(GTASA)
+        mode.format = static_cast<unsigned int>(D3DFMT_A8R8G8B8);
+#else
+        mode.format = static_cast<unsigned int>(D3DFMT_X8R8G8B8);
+#endif
+        mode.flags &= ~1u;  // 清除 rwVIDEOMODEEXCLUSIVE
+    } else if (index < static_cast<int>(g_windowModeVideoModeBackup.size())) {
+        mode = g_windowModeVideoModeBackup[index];
+    }
 }
 
 // 同步游戏自身的呈现参数：窗口模式下写成窗口化参数，
@@ -700,8 +745,9 @@ void MaintainWindowMode() {
         clientSize.cx = client.right - client.left;
         clientSize.cy = client.bottom - client.top;
     }
-    // 维护阶段只纠正样式，无边框模式额外保证铺满显示器
+    // 维护阶段只纠正样式，无边框模式额外保证铺满显示器；同时保持游戏显示状态同步
     ApplyWindowModeGeometry(g_window, g_windowMode, clientSize, false);
+    SyncGameDisplayState();
 
     if (parameters.Windowed && parameters.BackBufferWidth == static_cast<UINT>(clientSize.cx)
         && parameters.BackBufferHeight == static_cast<UINT>(clientSize.cy)) {

@@ -31,7 +31,8 @@ int GetWeaponModel(eWeaponType weaponType) {
 }
 
 eWeaponType GetWeaponTypeFromModel(int model) {
-    for (int i = 0; i <= 39; ++i) {
+    // VC 武器表只有 37 项，越界读会踩到后面的数据
+    for (int i = 0; i < 37; ++i) {
         const auto weaponType = static_cast<eWeaponType>(i);
         if (GetWeaponModel(weaponType) == model) return weaponType;
     }

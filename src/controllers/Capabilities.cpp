@@ -176,7 +176,6 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::PedDelete:
     case FeatureCapability::PedAttributes:
     case FeatureCapability::PedClassification:
-    case FeatureCapability::VehicleDoors:
     case FeatureCapability::VehicleSpawn:
     case FeatureCapability::VehicleSpawnSession:
     case FeatureCapability::VehicleDelete:
@@ -230,7 +229,6 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::PedAttributes:
     case FeatureCapability::PedClassification:
     case FeatureCapability::PedBigHead:
-    case FeatureCapability::VehicleDoors:
     case FeatureCapability::VehicleSpawn:
     case FeatureCapability::VehicleSpawnSession:
     case FeatureCapability::VehicleDelete:

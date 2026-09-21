@@ -1,20 +1,20 @@
 #include "CheatsBackend.h"
 
+#include "CVehicle.h"
+
 #include <cstdint>
 
 namespace XBase::Detail::CheatsBackend {
 namespace {
 
-constexpr std::uintptr_t kFlyingCarsAddress = 0x95CD75;
-constexpr std::uintptr_t kPerfectHandlingAddress = 0x95CD66;
-
 bool s_flyingCars = false;
 bool s_perfectHandling = false;
 
 // 游戏在读档或脚本介入后可能重置作弊标志，每帧回写保持宿主设置
+// 直接用 SDK 变量而不是裸地址，1.0 / 1.1 / Steam 都能落到正确位置
 void Apply() {
-    *reinterpret_cast<bool*>(kFlyingCarsAddress) = s_flyingCars;
-    *reinterpret_cast<bool*>(kPerfectHandlingAddress) = s_perfectHandling;
+    CVehicle::bAllDodosCheat = s_flyingCars;
+    CVehicle::bCheat3 = s_perfectHandling;
 }
 
 } // namespace

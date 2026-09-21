@@ -135,7 +135,7 @@ void SetFastClock(bool enable) {
 
 namespace {
 unsigned char NormalizePickupType(unsigned int type) {
-    if (type > PICKUP_NUMOFTYPES) return PICKUP_ONCE;
+    if (type >= PICKUP_NUMOFTYPES) return PICKUP_ONCE;
     return static_cast<unsigned char>(type);
 }
 } // namespace

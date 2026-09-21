@@ -18,10 +18,9 @@
 namespace XBase::Detail::PedBackend {
 namespace {
 CPed* AsPed(void* ped) { return static_cast<CPed*>(ped); }
-using PedPreRenderEvent = plugin::CdeclEvent<plugin::AddressList<0x4CFE12, plugin::H_CALL>, plugin::PRIORITY_AFTER,
-    plugin::ArgPickN<CPed*, 0>, void(CPed*)>;
+// 渲染钩子用 SDK 自带的 thiscall 事件，自己按调用点写 CdeclEvent 会把 this 指针读错
+auto& PedRenderEvent() { return plugin::Events::pedRenderEvent; }
 
-PedPreRenderEvent s_onPreRender;
 bool s_bigHead = false;
 bool s_hookInstalled = false;
 
@@ -56,13 +55,13 @@ void ApplyBigHead(CPed* ped) {
 
 void Init() {
     if (s_hookInstalled) return;
-    s_onPreRender += ApplyBigHead;
+    PedRenderEvent() += ApplyBigHead;
     s_hookInstalled = true;
 }
 
 void Shutdown() {
     if (s_hookInstalled) {
-        s_onPreRender -= ApplyBigHead;
+        PedRenderEvent() -= ApplyBigHead;
         s_hookInstalled = false;
     }
     s_bigHead = false;
@@ -96,7 +95,7 @@ bool IsCop(const void* ped) { return ped && static_cast<const CPed*>(ped)->m_ePe
 bool IsGang(const void* ped) {
     if (!ped) return false;
     const int type = static_cast<const CPed*>(ped)->m_ePedType;
-    return type >= 7 && type <= 12;
+    return type >= PED_TYPE_GANG1 && type <= PED_TYPE_GANG9;
 }
 void ClearAiming(void* ped) { if (ped) AsPed(ped)->ClearObjective(); }
 void Delete(void* ped) {

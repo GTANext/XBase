@@ -209,20 +209,10 @@ void WarpToSeat(void* vehicle, int seatIndex) {
         plugin::Command<plugin::Commands::WARP_CHAR_INTO_CAR_AS_PASSENGER>(CPools::GetPedRef(player), CPools::GetVehicleRef(AsVehicle(vehicle)), seatIndex - 1);
     }
 }
-void OpenDoor(void* vehicle, int doorIndex) {
-    if (!vehicle) return;
-    if (doorIndex < 0) doorIndex = 0;
-    if (doorIndex > 5) doorIndex = 5;
-    AsVehicle(vehicle)->OpenDoor(0, static_cast<eDoors>(doorIndex), 1.0f);
+// III 的开车门同样是按车门节点实现的虚函数，车型没有对应节点时会直接崩，
+// 这里不再提供该交互，能力矩阵也标记为不支持
+void OpenDoor(void*, int) {
 }
-#ifdef XBASE_BACKEND_SA
-void PopDoor(void* vehicle, int doorIndex) {
-    if (!vehicle) return;
-    if (doorIndex < 0) doorIndex = 0;
-    if (doorIndex > 5) doorIndex = 5;
-    AsVehicle(vehicle)->PopDoor(0, static_cast<eDoors>(doorIndex), true);
-}
-#endif
 void BlowUpAll() {
     CPlayerPed* player = FindPlayerPed();
     if (!player || !CPools::ms_pVehiclePool) return;
