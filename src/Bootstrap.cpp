@@ -74,8 +74,8 @@ DetectedGame DetectGame() {
 }
 
 // 载荷目录与文件名优先取宿主 ASI 导出的基名，未导出时按 ASI 文件名推导。
-// XMenu.asi 找 XMenu\XMenuSA.dll；III.VC.SA.WebView2.asi 导出 WebView2，
-// 因此找 WebView2\WebView2SA.dll，主 ASI 名字不受载荷命名影响。
+// XMenu 不导出基名，按文件名找 XMenu\XMenuSA.dll
+// WebView2 导出基名 WebView2，主 ASI 名字因此不影响载荷命名
 using PayloadBaseNameFn = const char*(*)();
 
 std::string ExportedHostName(HMODULE loaderModule) {
