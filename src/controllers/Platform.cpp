@@ -2,6 +2,8 @@
 
 #include <chrono>
 #include <cstring>
+#include <fstream>
+#include <sstream>
 #include <string>
 #include <vector>
 #include <windows.h>
@@ -117,6 +119,30 @@ std::string CurrentModuleDirectory() {
         return {};
     }
     return DirectoryFromModule(module);
+}
+
+std::string GameDirectory() {
+    wchar_t buffer[MAX_PATH] = {};
+    const DWORD length = GetModuleFileNameW(nullptr, buffer, MAX_PATH);
+    if (length == 0 || length >= MAX_PATH) {
+        return {};
+    }
+
+    std::wstring path(buffer, length);
+    const std::size_t slash = path.find_last_of(L"\\/");
+    if (slash == std::wstring::npos) {
+        return {};
+    }
+    return WideToUtf8(path.substr(0, slash + 1));
+}
+
+std::string XBaseDirectory() {
+    const std::string game = GameDirectory();
+    if (game.empty()) {
+        // 拿不到游戏目录时退回 asi 所在目录，至少保证可用
+        return CurrentModuleDirectory() + "XBase\\";
+    }
+    return game + "XBase\\";
 }
 
 bool IsWindows10OrNewer() {
@@ -256,6 +282,24 @@ std::vector<std::string> ListDirectories(const std::string& path) {
     } while (FindNextFileW(search, &data));
     FindClose(search);
     return directories;
+}
+
+bool ReadBinaryFile(const std::string& path, std::string& output) {
+    std::ifstream stream(XBase::Platform::Utf8ToWide(path).c_str(), std::ios::binary);
+    if (!stream.is_open()) return false;
+
+    std::ostringstream buffer;
+    buffer << stream.rdbuf();
+    output = buffer.str();
+    return true;
+}
+
+bool WriteBinaryFile(const std::string& path, const std::string& content) {
+    std::ofstream stream(XBase::Platform::Utf8ToWide(path).c_str(), std::ios::binary | std::ios::trunc);
+    if (!stream.is_open()) return false;
+
+    stream.write(content.data(), static_cast<std::streamsize>(content.size()));
+    return stream.good();
 }
 
 bool ReadModuleResource(int resourceId, std::string& output) {

@@ -105,8 +105,23 @@ bool IsBindingDown(const Binding& binding) {
     return IsVirtualKeyDown(static_cast<int>(binding.key)) && HasModifiers(binding.mods);
 }
 
+// ?????????? asi ???????????????
+void MigrationHook(const char* fileName) {
+    const std::string target = XBase::Platform::XBaseDirectory() + fileName;
+    if (XBase::Platform::FileExists(target)) return;
+
+    const std::string legacy = XBase::Platform::CurrentModuleDirectory() + "XBase\\" + fileName;
+    if (!XBase::Platform::FileExists(legacy)) return;
+
+    std::string content;
+    if (XBase::Platform::ReadTextFile(legacy, content)) {
+        XBase::Platform::EnsureDirectory(XBase::Platform::XBaseDirectory());
+        XBase::Platform::WriteTextFile(target, content);
+    }
+}
+
 std::string DefaultBindingsPath() {
-    return XBase::Platform::CurrentModuleDirectory() + "XBase\\hotkeys.json";
+    return XBase::Platform::XBaseDirectory() + "hotkeys.json";
 }
 
 const char* ModeName(Mode mode) {
@@ -284,6 +299,7 @@ void SaveBindings(const std::string& filePath) {
 
 void LoadBindings(const std::string& filePath) {
     const std::string path = filePath.empty() ? DefaultBindingsPath() : filePath;
+    if (filePath.empty()) MigrationHook("hotkeys.json");
     const Json::Value root = Json::Value::Load(path);
     if (!root.IsObject()) return;
 

@@ -56,7 +56,7 @@ namespace XBase::I18n {
 void Init(const std::string& directory) {
     if (State().initialized) return;
 
-    std::string baseDir = directory.empty() ? (ModuleDir() + "XBase\\i18n\\") : directory;
+    std::string baseDir = directory.empty() ? (XBase::Platform::XBaseDirectory() + "i18n\\") : directory;
     if (baseDir.back() != '\\') baseDir += '\\';
     State().directory = baseDir;
 

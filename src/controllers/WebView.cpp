@@ -133,11 +133,38 @@ std::string ModuleFilePath(const char* fileName) {
     return XBase::Platform::CurrentModuleDirectory() + fileName;
 }
 
+// 加载器统一放在游戏根目录的 XBase 下，旧的随 asi 附带的那份会先搬过去再加载
+std::string RuntimeLoaderPath() {
+    return XBase::Platform::XBaseDirectory() + "WebView2Loader.dll";
+}
+
+void MigrateLegacyRuntimeLoader() {
+    const std::string target = RuntimeLoaderPath();
+    if (XBase::Platform::FileExists(target)) return;
+
+    const std::string legacy = ModuleFilePath("WebView2Loader.dll");
+    if (!XBase::Platform::FileExists(legacy)) return;
+
+    std::string content;
+    if (!XBase::Platform::ReadBinaryFile(legacy, content)) return;
+
+    XBase::Platform::EnsureDirectory(XBase::Platform::XBaseDirectory());
+    if (XBase::Platform::WriteBinaryFile(target, content)) {
+        XBase::Log::Info("WebView: WebView2Loader.dll 已迁移到 XBase 目录");
+    }
+}
+
 bool LoadRuntime() {
     if (s_runtime.loader) return true;
 
-    const std::wstring localPath = XBase::Platform::Utf8ToWide(ModuleFilePath("WebView2Loader.dll"));
-    HMODULE loader = LoadLibraryW(localPath.c_str());
+    MigrateLegacyRuntimeLoader();
+
+    const std::wstring sharedPath = XBase::Platform::Utf8ToWide(RuntimeLoaderPath());
+    HMODULE loader = LoadLibraryW(sharedPath.c_str());
+    if (!loader) {
+        // 兼容仍有自带加载器的旧安装
+        loader = LoadLibraryW(XBase::Platform::Utf8ToWide(ModuleFilePath("WebView2Loader.dll")).c_str());
+    }
     if (!loader) {
         loader = LoadLibraryW(L"WebView2Loader.dll");
     }
@@ -1077,7 +1104,7 @@ void ProcessCreation() {
         }
     }
 
-    const std::string dataFolder = ModuleFilePath("XBase\\webview2");
+    const std::string dataFolder = XBase::Platform::XBaseDirectory() + "webview2";
     Platform::EnsureDirectory(dataFolder);
 
     auto* handler = new EnvironmentCompletedHandler();

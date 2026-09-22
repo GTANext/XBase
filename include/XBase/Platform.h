@@ -28,16 +28,22 @@ std::string ModuleDirectory(const char* moduleName);
 
 // Returns the directory containing the XBase implementation module.
 std::string CurrentModuleDirectory();
+std::string GameDirectory();
 bool IsModuleLoaded(const char* moduleName);
 
 // Windows 10 及以上返回 true，用于挑默认界面
 bool IsWindows10OrNewer();
+
+// 所有 XBase 数据统一放在游戏根目录的 XBase 下，与具体 asi 位置无关
+std::string XBaseDirectory();
 
 bool EnsureDirectory(const std::string& path);
 bool DirectoryExists(const std::string& path);
 bool FileExists(const std::string& path);
 bool ReadTextFile(const std::string& path, std::string& output);
 bool WriteTextFile(const std::string& path, const std::string& content);
+bool ReadBinaryFile(const std::string& path, std::string& output);
+bool WriteBinaryFile(const std::string& path, const std::string& content);
 std::vector<std::string> ListDirectories(const std::string& path);
 bool ReadModuleResource(int resourceId, std::string& output);
 

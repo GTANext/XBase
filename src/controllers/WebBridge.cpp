@@ -226,6 +226,10 @@ const BoolToggle kBoolToggles[] = {
     {"world.solidWater", XBase::FeatureCapability::WorldSolidWater,
      [](bool v) { XBase::World::SetSolidWater(v); return v; }},
 
+    {"vehicle.noDamage", XBase::FeatureCapability::VehicleTakeLessDamage,
+     [](bool v) { return XBase::Vehicle::SetTakeLessDamage(v); }},
+    {"vehicle.invisible", XBase::FeatureCapability::VehicleBasic,
+     [](bool v) { XBase::Vehicle::SetVisible(!v); return v; }},
     {"vehicle.petrolTankWeak", XBase::FeatureCapability::VehiclePetrolTankWeakPoint,
      [](bool v) { return XBase::Vehicle::SetPetrolTankWeakPoint(v); }},
     {"cheats.flyingCars", XBase::FeatureCapability::VehicleCheats,
@@ -355,6 +359,10 @@ XBase::Json::Value CapabilityReport() {
         {"vehicle.petrolTankWeak", XBase::FeatureCapability::VehiclePetrolTankWeakPoint},
         {"camera.settings", XBase::FeatureCapability::CameraFreecam},
         {"world.weatherRelease", XBase::FeatureCapability::WorldWeather},
+        {"vehicle.seat", XBase::FeatureCapability::VehicleBasic},
+        {"vehicle.resetColors", XBase::FeatureCapability::VehicleColors},
+        {"weapon.removePickups", XBase::FeatureCapability::WeaponBasic},
+        {"player.aimSkin", XBase::FeatureCapability::PlayerAimSkinChanger},
     };
 
     XBase::Json::Value methods;
@@ -634,6 +642,8 @@ void HandleMessage(const std::string& message) {
     if (method == "ped.spawn") {
         if (!RequireCapability(id, XBase::FeatureCapability::PedSpawn, "ped.spawn")) return;
         XBase::Types::PedSpawnOptions options;
+        options.health = static_cast<float>(params["health"].AsNumber(100.0));
+        options.armour = static_cast<float>(params["armour"].AsNumber(0.0));
         const bool atMarker = params["atMarker"].AsBool(false);
         const bool spawned = atMarker
             ? XBase::Ped::SpawnAtMarker(static_cast<unsigned int>(params["model"].AsInt()), options)
@@ -684,6 +694,9 @@ void HandleMessage(const std::string& message) {
         if (!params["fog"].IsNull()) XBase::World::SetFoggyness(static_cast<float>(params["fog"].AsNumber()));
         if (!params["clouds"].IsNull()) XBase::World::SetCloudCoverage(static_cast<float>(params["clouds"].AsNumber()));
         if (!params["wind"].IsNull()) XBase::World::SetWind(static_cast<float>(params["wind"].AsNumber()));
+        if (!params["sandstorm"].IsNull()) XBase::World::SetSandstorm(static_cast<float>(params["sandstorm"].AsNumber()));
+        if (!params["extraSunny"].IsNull()) XBase::World::SetExtraSunnyness(static_cast<float>(params["extraSunny"].AsNumber()));
+        if (!params["wetRoads"].IsNull()) XBase::World::SetWetRoads(static_cast<float>(params["wetRoads"].AsNumber()));
         Reply(id, XBase::Json::Value());
         return;
     }
@@ -1201,6 +1214,30 @@ void HandleMessage(const std::string& message) {
         if (!RequireCapability(id, XBase::FeatureCapability::WorldWeather, "world.weatherRelease")) return;
         XBase::World::ReleaseWeather();
         Reply(id, XBase::Json::Value());
+        return;
+    }
+
+    if (method == "vehicle.seat") {
+        if (!RequireCapability(id, XBase::FeatureCapability::VehicleBasic, "vehicle.seat")) return;
+        XBase::Vehicle::WarpToSeat(params["index"].AsInt(0));
+        Reply(id, XBase::Json::Value());
+        return;
+    }
+    if (method == "vehicle.resetColors") {
+        if (!RequireCapability(id, XBase::FeatureCapability::VehicleColors, "vehicle.resetColors")) return;
+        XBase::Vehicle::Colors colors;
+        XBase::Vehicle::SetColors(colors);
+        Reply(id, XBase::Json::Value());
+        return;
+    }
+    if (method == "weapon.removePickups") {
+        if (!RequireCapability(id, XBase::FeatureCapability::WeaponBasic, "weapon.removePickups")) return;
+        Reply(id, XBase::Json::Value(XBase::Weapon::RemoveTrackedPickups()));
+        return;
+    }
+    if (method == "player.aimSkin") {
+        if (!RequireCapability(id, XBase::FeatureCapability::PlayerAimSkinChanger, "player.aimSkin")) return;
+        Reply(id, XBase::Json::Value(XBase::Player::ApplyAimSkinChanger()));
         return;
     }
 

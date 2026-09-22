@@ -17,8 +17,22 @@ ConfigState& State() {
 }
 
 std::string DefaultConfigPath() {
-    std::string path = XBase::Platform::CurrentModuleDirectory();
-    return path + "XBase\\config.json";
+    return XBase::Platform::XBaseDirectory() + "config.json";
+}
+
+// 旧版本把数据放在 asi 目录下，首次运行时把配置搬到统一位置
+void MigrateLegacyFile(const std::string& fileName) {
+    const std::string target = XBase::Platform::XBaseDirectory() + fileName;
+    if (XBase::Platform::FileExists(target)) return;
+
+    const std::string legacy = XBase::Platform::CurrentModuleDirectory() + "XBase\\" + fileName;
+    if (!XBase::Platform::FileExists(legacy)) return;
+
+    std::string content;
+    if (XBase::Platform::ReadTextFile(legacy, content)) {
+        XBase::Platform::EnsureDirectory(XBase::Platform::XBaseDirectory());
+        XBase::Platform::WriteTextFile(target, content);
+    }
 }
 
 std::vector<std::string> SplitKey(const std::string& key) {
@@ -68,6 +82,9 @@ XBase::Json::Value* ResolveMutable(const std::string& key) {
 namespace XBase::Config {
 
 void Init(const std::string& filePath) {
+    if (filePath.empty()) {
+        MigrateLegacyFile("config.json");
+    }
     State().filePath = filePath.empty() ? DefaultConfigPath() : filePath;
 
     auto dirPos = State().filePath.find_last_of('\\');

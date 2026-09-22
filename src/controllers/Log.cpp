@@ -97,8 +97,7 @@ std::string NormalizeToUtf8(const char* message) {
 }
 
 std::string GetDefaultLogPath() {
-    const std::string path = XBase::Platform::CurrentModuleDirectory();
-    return path + "XBase\\logs\\xbase.log";
+    return XBase::Platform::XBaseDirectory() + "logs\\xbase.log";
 }
 
 bool EnsureDir(const std::string& path) {
