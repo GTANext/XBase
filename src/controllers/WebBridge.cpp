@@ -591,9 +591,14 @@ void HandleMessage(const std::string& message) {
 
     if (method == "weapon.give") {
         if (!RequireCapability(id, XBase::FeatureCapability::WeaponGive, "weapon.give")) return;
-        const bool given = XBase::Weapon::Give(
-            static_cast<unsigned int>(params["type"].AsInt()),
-            static_cast<unsigned int>(params["ammo"].AsInt(999)));
+        const int model = params["model"].AsInt(0);
+        const bool given = model > 0
+            ? XBase::Weapon::GiveModel(
+                  static_cast<unsigned int>(model),
+                  static_cast<unsigned int>(params["ammo"].AsInt(999)))
+            : XBase::Weapon::Give(
+                  static_cast<unsigned int>(params["type"].AsInt()),
+                  static_cast<unsigned int>(params["ammo"].AsInt(999)));
         Reply(id, XBase::Json::Value(given));
         return;
     }
