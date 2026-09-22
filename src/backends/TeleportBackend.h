@@ -1,6 +1,6 @@
 #pragma once
 
-#include <XBase/ValueTypes.h>
+#include <XBase/Teleport.h>
 
 namespace XBase::Detail::TeleportBackend {
 
@@ -10,5 +10,6 @@ bool Forward(float distance);
 bool MapPosition(const Vec3& position, bool spawnUnderwater);
 bool Marker(bool spawnUnderwater);
 bool Center();
+bool GetMapBounds(MapBounds& bounds);
 
 } // namespace XBase::Detail::TeleportBackend

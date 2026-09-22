@@ -7,7 +7,7 @@
 namespace XBase::Ped {
 namespace {
 void* s_lastSpawned = nullptr;
-bool s_noFire = false;
+NoFireOptions s_noFireOptions;
 bool s_elvis = false;
 bool s_armed = false;
 bool s_mayhem = false;
@@ -56,7 +56,7 @@ void Shutdown() {
     Detail::PedBackend::SetBodyAppearance(false, false);
     Detail::PedBackend::Shutdown();
     s_lastSpawned = nullptr;
-    s_noFire = false;
+    s_noFireOptions = {};
     s_limitPolice = false;
     s_limitGangs = false;
     s_maxPolice = 0;
@@ -76,9 +76,14 @@ void Shutdown() {
     s_gangWars = false;
 }
 void SetNoFire(bool enable) {
-    s_noFire = HasCapability(FeatureCapability::BulletAssistFireSuppression) && enable;
+    s_noFireOptions.enable = HasCapability(FeatureCapability::BulletAssistFireSuppression) && enable;
 }
-bool GetNoFire() { return s_noFire; }
+void SetNoFire(const NoFireOptions& options) {
+    s_noFireOptions = options;
+    s_noFireOptions.enable = HasCapability(FeatureCapability::BulletAssistFireSuppression) && s_noFireOptions.enable;
+}
+bool GetNoFire() { return s_noFireOptions.enable; }
+NoFireOptions GetNoFireOptions() { return s_noFireOptions; }
 void SetSpawnLimits(bool limitPolice, bool limitGangs, int maxPolice, int maxGangs) {
     s_limitPolice = limitPolice;
     s_limitGangs = limitGangs;

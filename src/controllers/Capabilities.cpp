@@ -119,6 +119,7 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::VehicleCheats:
     case FeatureCapability::WorldTime:
     case FeatureCapability::WorldWeather:
+    case FeatureCapability::WorldWeatherEffects:
     case FeatureCapability::WorldGravity:
     case FeatureCapability::WorldGameSpeed:
     case FeatureCapability::WorldFpsLimit:
@@ -212,6 +213,7 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::BulletAssistPedSkeleton:
     case FeatureCapability::BulletAssistVehicleCollision:
     case FeatureCapability::BulletAssistFireSuppression:
+    case FeatureCapability::SceneMission:
     case FeatureCapability::WorldPickups:
         return CapabilitySupport::Partial;
     default:
@@ -256,6 +258,7 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::VehicleBasic:
     case FeatureCapability::VehicleColors:
     case FeatureCapability::VehicleCheats:
+    case FeatureCapability::SceneMission:
     case FeatureCapability::WorldPickups:
         return CapabilitySupport::Partial;
     default:

@@ -1,4 +1,5 @@
 #include "BulletAssistBackend.h"
+#include "PedBackend.h"
 #include "RuntimeGuard.h"
 #include "common.h"
 
@@ -298,7 +299,7 @@ bool __fastcall HookFireInstantHit(CWeapon* weapon, void*, CEntity* firingEntity
         CPed* ped = static_cast<CPed*>(firingEntity);
         const int reference = CPools::GetPedRef(ped);
         if (reference >= 0 && ShouldSuppressPedFire(
-                PedId{static_cast<std::uint32_t>(reference) + 1u}, Ped::GetNoFire())) return false;
+                PedId{static_cast<std::uint32_t>(reference) + 1u}, Ped::GetNoFireOptions())) return false;
     }
     ShotScope shot(callback.active && IsLocalPlayer(firingEntity));
     return s_originalFireInstantHit(weapon, firingEntity, source);
@@ -312,7 +313,7 @@ bool __fastcall HookFireInstantHitFromCar(
     if (callback.active && vehicle && vehicle->m_pDriver && vehicle->m_pDriver != player) {
         const int reference = CPools::GetPedRef(vehicle->m_pDriver);
         if (reference >= 0 && ShouldSuppressPedFire(
-                PedId{static_cast<std::uint32_t>(reference) + 1u}, Ped::GetNoFire())) return false;
+                PedId{static_cast<std::uint32_t>(reference) + 1u}, Ped::GetNoFireOptions())) return false;
     }
     ShotScope shot(callback.active && player && player->m_pVehicle == vehicle);
     return s_originalFireInstantHitFromCar(weapon, vehicle, left, right);
@@ -664,8 +665,23 @@ void Draw(const BulletAssist::Config& config) {
     }
 }
 
-bool ShouldSuppressPedFire(PedId ped, bool noFireEnabled) {
-    return static_cast<bool>(ped) && noFireEnabled;
+namespace {
+
+CPed* ResolvePed(PedId ped) {
+    if (!ped || !CPools::ms_pPedPool) return nullptr;
+    const int index = static_cast<int>(ped.value - 1u);
+    if (index < 0 || index >= CPools::ms_pPedPool->m_nSize) return nullptr;
+    CPed* candidate = CPools::ms_pPedPool->GetAt(index);
+    return candidate && CPools::GetPedRef(candidate) == index ? candidate : nullptr;
+}
+
+} // namespace
+
+bool ShouldSuppressPedFire(PedId ped, const Ped::NoFireOptions& options) {
+    CPed* target = ResolvePed(ped);
+    if (!target) return false;
+    return ShouldSuppressNoFire(
+        options, PedBackend::IsMission(target), PedBackend::IsCop(target), PedBackend::IsGang(target));
 }
 
 } // namespace XBase::Detail::BulletAssistBackend

@@ -29,7 +29,7 @@ bool IsPedInPool(CPed* ped) {
     return ped && CPools::ms_pPedPool && CPools::ms_pPedPool->IsObjectValid(ped);
 }
 
-bool s_noFireEnabled = false;
+XBase::Ped::NoFireOptions s_noFireOptions;
 bool s_smokingEffect = false;
 bool s_fliesEffect = false;
 unsigned int s_lastSmokeTick = 0;
@@ -142,7 +142,7 @@ void Shutdown() {
         plugin::Events::pedRenderEvent -= ApplyBodyAppearance;
         s_renderHookInstalled = false;
     }
-    s_noFireEnabled = false;
+    s_noFireOptions = {};
     s_smokingEffect = false;
     s_fliesEffect = false;
     s_elvisEverywhere = false;
@@ -162,11 +162,19 @@ void Shutdown() {
 }
 
 void SetNoFire(bool enable) {
-    s_noFireEnabled = enable;
+    s_noFireOptions.enable = enable;
+}
+
+void SetNoFire(const NoFireOptions& options) {
+    s_noFireOptions = options;
 }
 
 bool GetNoFire() {
-    return s_noFireEnabled;
+    return s_noFireOptions.enable;
+}
+
+NoFireOptions GetNoFireOptions() {
+    return s_noFireOptions;
 }
 
 void SetSmokingEffect(bool enable) {

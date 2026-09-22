@@ -108,9 +108,13 @@ void SetRuntimeOptions(const RuntimeOptions& options) {
     s_speedLock = options.speedLock ? options.speed : 0.0f;
 }
 
-bool SetAutoDriveToWaypoint(bool) { return false; }
+bool SetAutoDriveToWaypoint(bool, float) { return false; }
 
 bool SetTrafficDensity(float) {
+    return false;
+}
+
+bool TryGetTrafficDensity(float&) {
     return false;
 }
 

@@ -90,6 +90,16 @@ bool Marker(bool spawnUnderwater) {
     return MapPosition(blip.m_vecPos.x, blip.m_vecPos.y, spawnUnderwater);
 }
 
+bool TryGetMapBounds(MapBounds& bounds) {
+    if (CRadar::m_radarRange <= 0.0f) return false;
+    const CVector2D& origin = CRadar::vec2DRadarOrigin;
+    bounds.minX = origin.x - CRadar::m_radarRange;
+    bounds.maxX = origin.x + CRadar::m_radarRange;
+    bounds.minY = origin.y - CRadar::m_radarRange;
+    bounds.maxY = origin.y + CRadar::m_radarRange;
+    return true;
+}
+
 bool Center() {
     return To(0.0f, 0.0f, 3.0f, 0);
 }

@@ -63,6 +63,10 @@ bool SetFilter(int id, float) {
     return true;
 }
 
+int GetFilter() {
+    return s_currentFilter;
+}
+
 void SetRadarOptions(const Visual::RadarOptions&) {}
 
 void Init() {

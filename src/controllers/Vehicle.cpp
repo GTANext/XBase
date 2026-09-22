@@ -129,6 +129,7 @@ namespace {
     SpawnPolicy s_spawnPolicy;
     CVehicle* s_trackedVehicle = nullptr;
     bool s_autoDriveEnabled = false;
+    float s_autoDriveSpeed = 35.0f;
     CVector s_autoDriveTarget;
     bool s_hasAutoDriveTarget = false;
     DWORD s_spawnWindowStart = 0;
@@ -188,9 +189,18 @@ namespace {
         vehicle->bDisableParticles = true;
     }
 
+    void ApplyAutoDriveSpeed(int handle, bool boat) {
+        if (boat) {
+            plugin::Command<plugin::Commands::SET_BOAT_CRUISE_SPEED>(handle, s_autoDriveSpeed);
+        } else {
+            plugin::Command<plugin::Commands::SET_CAR_CRUISE_SPEED>(handle, s_autoDriveSpeed);
+        }
+    }
+
     void ProcessAutoDrive(CVehicle* vehicle) {
         static CVehicle* s_lastVehicle = nullptr;
         static CVector s_lastTarget;
+        static float s_lastSpeed = 0.0f;
         static bool s_taskIssued = false;
 
         if (!vehicle || !s_autoDriveEnabled || !s_hasAutoDriveTarget) {
@@ -203,6 +213,11 @@ namespace {
             s_lastTarget.y != s_autoDriveTarget.y ||
             s_lastTarget.z != s_autoDriveTarget.z;
         if (s_taskIssued && s_lastVehicle == vehicle && !targetChanged) {
+            // 巡航速度可以随时改写 不必重新下发行驶任务
+            if (s_lastSpeed != s_autoDriveSpeed) {
+                ApplyAutoDriveSpeed(CPools::GetVehicleRef(vehicle), CModelInfo::IsBoatModel(vehicle->m_nModelIndex));
+                s_lastSpeed = s_autoDriveSpeed;
+            }
             return;
         }
 
@@ -236,8 +251,10 @@ namespace {
             return;
         }
 
+        ApplyAutoDriveSpeed(handle, CModelInfo::IsBoatModel(model));
         s_lastVehicle = vehicle;
         s_lastTarget = s_autoDriveTarget;
+        s_lastSpeed = s_autoDriveSpeed;
         s_taskIssued = true;
     }
 
@@ -389,6 +406,7 @@ void Shutdown() {
     RestoreDisableParticles();
     ResetSpawnSession();
     s_autoDriveEnabled = false;
+    s_autoDriveSpeed = 35.0f;
     s_hasAutoDriveTarget = false;
     s_autoDriveTarget = CVector(0.0f, 0.0f, 0.0f);
     s_spawnPolicy = SpawnPolicy{};
@@ -747,7 +765,8 @@ void WarpToSeat(int seatIndex) {
     }
 }
 
-bool SetAutoDriveToWaypoint(bool enable) {
+bool SetAutoDriveToWaypoint(bool enable, float speed) {
+    s_autoDriveSpeed = speed < 1.0f ? 1.0f : speed;
     if (!enable) {
         s_autoDriveEnabled = false;
         s_hasAutoDriveTarget = false;
@@ -768,6 +787,11 @@ bool SetAutoDriveToWaypoint(bool enable) {
 
 bool SetTrafficDensity(float density) {
     *reinterpret_cast<float*>(0x8A5B20) = density;
+    return true;
+}
+
+bool TryGetTrafficDensity(float& density) {
+    density = *reinterpret_cast<float*>(0x8A5B20);
     return true;
 }
 

@@ -46,7 +46,7 @@ void Draw() {
 }
 
 bool ShouldSuppressPedFire(PedId ped) {
-    return Detail::BulletAssistBackend::ShouldSuppressPedFire(ped, Ped::GetNoFire());
+    return Detail::BulletAssistBackend::ShouldSuppressPedFire(ped, Ped::GetNoFireOptions());
 }
 
 } // namespace XBase::BulletAssist

@@ -6,6 +6,6 @@ bool Init() { return false; }
 void Process(const BulletAssist::Config&) {}
 void Shutdown() {}
 void Draw(const BulletAssist::Config&) {}
-bool ShouldSuppressPedFire(PedId, bool) { return false; }
+bool ShouldSuppressPedFire(PedId, const Ped::NoFireOptions&) { return false; }
 
 } // namespace XBase::Detail::BulletAssistBackend

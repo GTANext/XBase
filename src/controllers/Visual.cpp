@@ -165,6 +165,10 @@ bool SetFilter(int id, float strength) {
     return true;
 }
 
+int GetFilter() {
+    return s_currentFilter;
+}
+
 void NotifyGameInit() {
     s_currentFilter = 0;
     s_filterStrength = 0.0f;

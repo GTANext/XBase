@@ -295,6 +295,17 @@ bool FailMission() {
 
 bool StartMission(int missionId) {
     if (missionId < 0) return false;
+
+    CPlayerPed* player = FindPlayerPed();
+    if (!player || !player->CanPlayerStartMission()) return false;
+
+    // 室内直接载入任务脚本会把玩家留在错误区域
+    int areaVisible = 0;
+    plugin::Command<plugin::Commands::GET_CHAR_AREA_VISIBLE>(CPools::GetPedRef(player), &areaVisible);
+    if (areaVisible != 0) return false;
+
+    // 通缉状态会跟随任务脚本 先清空再载入
+    player->SetWantedLevel(0);
     plugin::Command<plugin::Commands::LOAD_AND_LAUNCH_MISSION_INTERNAL>(missionId);
     return true;
 }

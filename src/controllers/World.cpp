@@ -408,6 +408,10 @@ void SetSolidWater(bool enable) {
     }
 }
 
+bool IsSolidWater() {
+    return s_solidWater;
+}
+
 void DestroyAllVehicles() {
     CPlayerPed* player = FindPlayerPed();
     if (!player) return;

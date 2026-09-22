@@ -16,6 +16,10 @@ bool SetFilter(int id, float strength) {
     return Detail::VisualBackend::SetFilter(id, strength);
 }
 
+int GetFilter() {
+    return Detail::VisualBackend::GetFilter();
+}
+
 void SetRadarOptions(const RadarOptions& options) {
     Detail::VisualBackend::SetRadarOptions(options);
 }

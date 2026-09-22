@@ -3,6 +3,7 @@
 #include "CPlayerPed.h"
 #include "CVehicle.h"
 #include "CStreaming.h"
+#include "CRadar.h"
 #include "common.h"
 #include "extensions/ScriptCommands.h"
 #include "plugin.h"
@@ -69,5 +70,15 @@ bool MapPosition(const Vec3& position, bool spawnUnderwater) {
 bool Marker(bool) { return false; }
 
 bool Center() { return To({ 0.0f, 0.0f, 3.0f }, 0); }
+
+bool GetMapBounds(MapBounds& bounds) {
+    if (CRadar::m_radarRange <= 0.0f) return false;
+    const CVector2D& origin = CRadar::vec2DRadarOrigin;
+    bounds.minX = origin.x - CRadar::m_radarRange;
+    bounds.maxX = origin.x + CRadar::m_radarRange;
+    bounds.minY = origin.y - CRadar::m_radarRange;
+    bounds.maxY = origin.y + CRadar::m_radarRange;
+    return true;
+}
 
 } // namespace XBase::Detail::TeleportBackend

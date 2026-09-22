@@ -20,6 +20,7 @@
 #include <XBase/World.h>
 
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -264,6 +265,42 @@ const BoolToggle kBoolToggles[] = {
      [](bool v) { return XBase::Camera::SetMode(v ? XBase::Camera::Mode::TopDown : XBase::Camera::Mode::Disabled); }},
 };
 
+// 后端里仍是空实现或常量返回的方法，按机型直接标为不可用，
+// 否则入口可点但功能不会发生，观感比直接禁用更差
+bool IsMethodStubbed(const char* method) {
+#if defined(XBASE_BACKEND_VC)
+    static const char* const kStubbed[] = {
+        "ped.elvis",
+        "ped.gangsControl",
+        "ped.gangDensity",
+        "ped.gangMemberModel",
+        "ped.nastyLimbs",
+        "teleport.marker",
+        "cheats.perfectHandling",
+    };
+#elif defined(XBASE_BACKEND_III)
+    static const char* const kStubbed[] = {
+        "ped.elvis",
+        "ped.gangDensity",
+        "ped.gangMemberModel",
+        "teleport.marker",
+        "cheats.boatFly",
+        "cheats.driveWater",
+        "cheats.greenLights",
+    };
+#else
+    static const char* const kStubbed[] = {""};
+    (void)kStubbed;
+    return false;
+#endif
+    for (const char* name : kStubbed) {
+        if (std::strcmp(name, method) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 XBase::Json::Value CapabilityReport() {
     struct Entry {
         const char* method;
@@ -301,12 +338,13 @@ XBase::Json::Value CapabilityReport() {
         {"player.skin", XBase::FeatureCapability::PlayerAppearance},
         {"ped.spawn", XBase::FeatureCapability::PedSpawn},
         {"ped.deleteLast", XBase::FeatureCapability::PedDelete},
-        {"ped.noFire", XBase::FeatureCapability::PedGlobalStrategies},
+        {"ped.noFire", XBase::FeatureCapability::BulletAssistFireSuppression},
+        {"ped.noFireOptions", XBase::FeatureCapability::BulletAssistFireSuppression},
         {"vehicle.lights", XBase::FeatureCapability::VehicleBasic},
         {"vehicle.locked", XBase::FeatureCapability::VehicleBasic},
         {"vehicle.health", XBase::FeatureCapability::VehicleBasic},
         {"vehicle.paintjob", XBase::FeatureCapability::VehiclePaintjob},
-        {"world.environment", XBase::FeatureCapability::WorldWeather},
+        {"world.environment", XBase::FeatureCapability::WorldWeatherEffects},
         {"world.destroyVehicles", XBase::FeatureCapability::WorldGameSpeed},
         {"world.destroyPeds", XBase::FeatureCapability::WorldGameSpeed},
         {"weapon.clearAll", XBase::FeatureCapability::WeaponGive},
@@ -375,6 +413,17 @@ XBase::Json::Value CapabilityReport() {
         methods.Set(toggle.method, XBase::Json::Value(CapabilityName(XBase::GetCapabilitySupport(toggle.capability))));
     }
 
+    for (const Entry& entry : entries) {
+        if (IsMethodStubbed(entry.method)) {
+            methods.Set(entry.method, XBase::Json::Value("unsupported"));
+        }
+    }
+    for (const BoolToggle& toggle : kBoolToggles) {
+        if (IsMethodStubbed(toggle.method)) {
+            methods.Set(toggle.method, XBase::Json::Value("unsupported"));
+        }
+    }
+
     XBase::Json::Value result;
     result.Set("protocol", XBase::Json::Value(ProtocolVersion));
     result.Set("game", XBase::Json::Value(XBase::Runtime::GetGameKey()));
@@ -429,6 +478,11 @@ void HandleMessage(const std::string& message) {
     const XBase::Json::Value params = request["params"];
     if (method.empty()) {
         Fail(id, "missing method");
+        return;
+    }
+
+    if (IsMethodStubbed(method.c_str())) {
+        Fail(id, std::string("unsupported on this game: ") + method);
         return;
     }
 
@@ -660,8 +714,20 @@ void HandleMessage(const std::string& message) {
         return;
     }
     if (method == "ped.noFire") {
-        if (!RequireCapability(id, XBase::FeatureCapability::PedGlobalStrategies, "ped.noFire")) return;
+        if (!RequireCapability(id, XBase::FeatureCapability::BulletAssistFireSuppression, "ped.noFire")) return;
         XBase::Ped::SetNoFire(params["enable"].AsBool(true));
+        Reply(id, XBase::Json::Value());
+        return;
+    }
+    if (method == "ped.noFireOptions") {
+        if (!RequireCapability(id, XBase::FeatureCapability::BulletAssistFireSuppression, "ped.noFireOptions")) return;
+        XBase::Ped::NoFireOptions options;
+        options.enable = params["enable"].AsBool(true);
+        options.civilians = params["civilians"].AsBool(true);
+        options.gangs = params["gangs"].AsBool(true);
+        options.cops = params["cops"].AsBool(true);
+        options.mission = params["mission"].AsBool(false);
+        XBase::Ped::SetNoFire(options);
         Reply(id, XBase::Json::Value());
         return;
     }
@@ -691,7 +757,7 @@ void HandleMessage(const std::string& message) {
     }
 
     if (method == "world.environment") {
-        if (!RequireCapability(id, XBase::FeatureCapability::WorldWeather, "world.environment")) return;
+        if (!RequireCapability(id, XBase::FeatureCapability::WorldWeatherEffects, "world.environment")) return;
         if (!params["rain"].IsNull()) XBase::World::SetRain(static_cast<float>(params["rain"].AsNumber()));
         if (!params["fog"].IsNull()) XBase::World::SetFoggyness(static_cast<float>(params["fog"].AsNumber()));
         if (!params["clouds"].IsNull()) XBase::World::SetCloudCoverage(static_cast<float>(params["clouds"].AsNumber()));
@@ -761,6 +827,10 @@ void HandleMessage(const std::string& message) {
     }
     if (method == "visual.filter") {
         if (!RequireCapability(id, XBase::FeatureCapability::VisualFilter, "visual.filter")) return;
+        if (params["id"].IsNull()) {
+            Reply(id, XBase::Json::Value(XBase::Visual::GetFilter()));
+            return;
+        }
         const bool applied = XBase::Visual::SetFilter(
             params["id"].AsInt(),
             static_cast<float>(params["strength"].AsNumber(1.0)));
@@ -780,6 +850,14 @@ void HandleMessage(const std::string& message) {
         options.infrared = params["infrared"].AsBool(false);
         XBase::Visual::SetRadarOptions(options);
         Reply(id, XBase::Json::Value());
+        return;
+    }
+
+    if (method == "vehicle.autoDrive") {
+        if (!RequireCapability(id, XBase::FeatureCapability::VehicleAutoDrive, "vehicle.autoDrive")) return;
+        const float speed = static_cast<float>(params["speed"].AsNumber(35.0));
+        Reply(id, XBase::Json::Value(
+            XBase::Vehicle::SetAutoDriveToWaypoint(params["enable"].AsBool(true), speed)));
         return;
     }
 
@@ -990,6 +1068,12 @@ void HandleMessage(const std::string& message) {
 
     if (method == "vehicle.trafficDensity") {
         if (!RequireCapability(id, XBase::FeatureCapability::VehicleTrafficDensity, "vehicle.trafficDensity")) return;
+        if (params["value"].IsNull()) {
+            float density = 1.0f;
+            XBase::Vehicle::TryGetTrafficDensity(density);
+            Reply(id, XBase::Json::Value(static_cast<double>(density)));
+            return;
+        }
         Reply(id, XBase::Json::Value(XBase::Vehicle::SetTrafficDensity(
             static_cast<float>(params["value"].AsNumber(1.0)))));
         return;

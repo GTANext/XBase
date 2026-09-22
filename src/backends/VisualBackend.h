@@ -7,6 +7,7 @@ namespace XBase::Detail::VisualBackend {
 bool DisplayHud(bool enable);
 bool DisplayRadar(bool enable);
 bool SetFilter(int id, float strength);
+int GetFilter();
 void SetRadarOptions(const Visual::RadarOptions& options);
 void Init();
 void Shutdown();

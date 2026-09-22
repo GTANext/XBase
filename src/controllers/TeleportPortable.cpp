@@ -34,6 +34,10 @@ bool Center() {
     return Detail::TeleportBackend::Center();
 }
 
+bool TryGetMapBounds(MapBounds& bounds) {
+    return Detail::TeleportBackend::GetMapBounds(bounds);
+}
+
 void Process() {}
 
 } // namespace XBase::Teleport

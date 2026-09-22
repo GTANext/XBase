@@ -185,6 +185,7 @@ bool IsFreePayNSpray() { return false; }
 void SetNoWaterPhysics(bool) {}
 bool IsNoWaterPhysics() { return false; }
 void SetSolidWater(bool) {}
+bool IsSolidWater() { return false; }
 
 int GetDaysPassed() { return Detail::WorldBackend::GetDaysPassed(); }
 void SetDaysPassed(int days) { Detail::WorldBackend::SetDaysPassed(days); }

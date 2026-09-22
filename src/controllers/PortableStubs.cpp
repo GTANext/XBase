@@ -5,7 +5,6 @@
 #include <XBase/Hooks.h>
 #include <XBase/Overlay.h>
 #include <XBase/Ped.h>
-#include <XBase/Scene.h>
 #include <XBase/Theme.h>
 #include <XBase/Types.h>
 #include <XBase/UI.h>
@@ -13,27 +12,6 @@
 #include <XBase/VehicleEffects.h>
 
 #include <utility>
-
-namespace XBase::Scene {
-void Process() {}
-void NotifyGameInit() {}
-void Shutdown() {}
-bool PlayAnimation(const char*, const char*, bool) { return false; }
-bool PlayAnimation(const char*, const char*, const AnimationOptions&) { return false; }
-bool StopAnimation() { return false; }
-bool PlayParticle(const char*) { return false; }
-bool RemoveAllParticles() { return false; }
-bool RemoveLatestParticle() { return false; }
-bool StartCutscene(const char*) { return false; }
-bool StartCutscene(const char*, int) { return false; }
-bool StopCutscene() { return false; }
-bool IsCutsceneRunning() { return false; }
-const char* GetMissionStatus() { return "unsupported"; }
-bool FailMission() { return false; }
-bool StartMission(int) { return false; }
-bool SetFightingStyle(int) { return false; }
-bool SetWalkingStyle(int) { return false; }
-}
 
 namespace XBase::VehicleEffects {
 bool ApplyCurrentNeon(const NeonSettings&) { return false; }
