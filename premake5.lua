@@ -130,6 +130,7 @@ local function add_portable_player_target(name, sdkName, gameName, gameDefine, b
             "src/controllers/Theme.cpp",
             "src/controllers/UI.cpp",
             "src/controllers/WebView.cpp",
+            "src/controllers/WebBridge.cpp",
             "src/controllers/PlayerPortable.cpp",
             "src/controllers/PedPortable.cpp",
             "src/controllers/PortableStubs.cpp",

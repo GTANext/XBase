@@ -94,6 +94,10 @@ struct WebViewState {
     bool boundsApplied = false;
     float zoom = 1.0f;
     XBase::WebView::StateCallback stateCallback = nullptr;
+    XBase::WebView::MessageHandler messageHandler = nullptr;
+    std::vector<std::string> pendingScripts;
+    EventRegistrationToken webMessageToken{};
+    bool webMessageRegistered = false;
 
     // 独占全屏下改用抓帧贴图呈现
     bool previewReady = false;
@@ -301,6 +305,10 @@ void ReleaseControllerLocked() {
         s_state.webview->remove_NavigationCompleted(s_state.navigationCompletedToken);
         s_state.webview->remove_DocumentTitleChanged(s_state.documentTitleToken);
         s_state.webview->remove_NewWindowRequested(s_state.newWindowToken);
+        if (s_state.webMessageRegistered) {
+            s_state.webview->remove_WebMessageReceived(s_state.webMessageToken);
+            s_state.webMessageRegistered = false;
+        }
         s_state.tokensRegistered = false;
     }
     if (s_state.controller) {
@@ -603,6 +611,33 @@ public:
     }
 };
 
+// 网页用 postMessage 发来的 JSON 原样转给宿主注册的处理函数
+class WebMessageReceivedHandler final : public ICoreWebView2WebMessageReceivedEventHandler {
+public:
+    XBASE_WEBVIEW_HANDLER_BODY(ICoreWebView2WebMessageReceivedEventHandler)
+
+    HRESULT STDMETHODCALLTYPE Invoke(ICoreWebView2* sender, ICoreWebView2WebMessageReceivedEventArgs* args) override {
+        if (!args) return S_OK;
+
+        std::string message;
+        LPWSTR json = nullptr;
+        if (SUCCEEDED(args->get_WebMessageAsJson(&json)) && json) {
+            message = Utf8FromCoTaskMem(json);
+        }
+        if (message.empty()) return S_OK;
+
+        XBase::WebView::MessageHandler handler = nullptr;
+        {
+            std::lock_guard<std::mutex> lock(s_state.mutex);
+            handler = s_state.messageHandler;
+        }
+        if (handler) {
+            handler(message);
+        }
+        return S_OK;
+    }
+};
+
 class NewWindowRequestedHandler final : public ICoreWebView2NewWindowRequestedEventHandler {
 public:
     XBASE_WEBVIEW_HANDLER_BODY(ICoreWebView2NewWindowRequestedEventHandler)
@@ -675,6 +710,18 @@ public:
                     navigationCompleted->Release();
                     titleChanged->Release();
                     newWindow->Release();
+
+                    auto* webMessage = new WebMessageReceivedHandler();
+                    if (SUCCEEDED(webview->add_WebMessageReceived(webMessage, &s_state.webMessageToken))) {
+                        s_state.webMessageRegistered = true;
+                    }
+                    webMessage->Release();
+
+                    // 页面脚本注入要等控制器就绪，之前排队的脚本在这里补上
+                    for (const std::string& script : s_state.pendingScripts) {
+                        webview->AddScriptToExecuteOnDocumentCreated(WideFrom(script).c_str(), nullptr);
+                    }
+                    s_state.pendingScripts.clear();
 
                     s_state.canGoBack = false;
                     s_state.canGoForward = false;
@@ -1030,6 +1077,23 @@ void ProcessCreation() {
     s_state.createInFlight = true;
 }
 
+// 关闭面板会释放浏览器与宿主窗口，之后再次 SetVisible(true) 会重新创建
+bool Close() {
+    if (!IsRuntimeAvailable()) return false;
+
+    SetVisible(false);
+
+    std::lock_guard<std::mutex> lock(s_state.mutex);
+    s_state.initRequested = true;
+    s_state.createRequested = false;
+    if (s_state.createInFlight) {
+        s_state.shutdownPending = true;
+        return true;
+    }
+    ReleaseControllerLocked();
+    return true;
+}
+
 void Shutdown() {
     SetVisible(false);
 
@@ -1154,6 +1218,28 @@ State GetState() {
 void SetStateCallback(StateCallback callback) {
     std::lock_guard<std::mutex> lock(s_state.mutex);
     s_state.stateCallback = callback;
+}
+
+void SetMessageHandler(MessageHandler handler) {
+    std::lock_guard<std::mutex> lock(s_state.mutex);
+    s_state.messageHandler = std::move(handler);
+}
+
+bool PostJson(const std::string& json) {
+    if (json.empty()) return false;
+    std::lock_guard<std::mutex> lock(s_state.mutex);
+    if (!s_state.webview) return false;
+    return SUCCEEDED(s_state.webview->PostWebMessageAsJson(WideFrom(json).c_str()));
+}
+
+bool InjectScript(const std::string& script) {
+    if (script.empty()) return false;
+    std::lock_guard<std::mutex> lock(s_state.mutex);
+    if (!s_state.webview) {
+        s_state.pendingScripts.push_back(script);
+        return true;
+    }
+    return SUCCEEDED(s_state.webview->AddScriptToExecuteOnDocumentCreated(WideFrom(script).c_str(), nullptr));
 }
 
 bool UsesCaptureMode() {
