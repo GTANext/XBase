@@ -119,6 +119,29 @@ std::string CurrentModuleDirectory() {
     return DirectoryFromModule(module);
 }
 
+bool IsWindows10OrNewer() {
+    // RtlGetVersion 不受兼容性清单影响，能拿到真实版本号
+    struct OsVersionInfo {
+        unsigned long size;
+        unsigned long major;
+        unsigned long minor;
+        unsigned long build;
+        unsigned long platform;
+        wchar_t servicePack[128];
+    };
+
+    using RtlGetVersionFn = LONG(WINAPI*)(OsVersionInfo*);
+    HMODULE module = GetModuleHandleA("ntdll.dll");
+    if (!module) return true;
+    auto rtlGetVersion = reinterpret_cast<RtlGetVersionFn>(GetProcAddress(module, "RtlGetVersion"));
+    if (!rtlGetVersion) return true;
+
+    OsVersionInfo info{};
+    info.size = sizeof(info);
+    if (rtlGetVersion(&info) != 0) return true;
+    return info.major >= 10;
+}
+
 bool IsModuleLoaded(const char* moduleName) {
     return moduleName && moduleName[0] && GetModuleHandleW(Utf8ToWide(moduleName).c_str()) != nullptr;
 }

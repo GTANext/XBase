@@ -4,6 +4,7 @@
 #include <XBase/Theme.h>
 
 #include <imgui.h>
+#include <imgui_internal.h>
 
 #include <cstdio>
 #include <cmath>
@@ -910,13 +911,24 @@ Vec2 GetContentAvailable() {
 }
 
 Vec2 GetDisplaySize() {
+    if (ImGui::GetCurrentContext() == nullptr) {
+        return {0.0f, 0.0f};
+    }
     const ImVec2 value = ImGui::GetIO().DisplaySize;
     return {value.x, value.y};
 }
 
 Rect GetCurrentWindowRect() {
-    const ImVec2 position = ImGui::GetWindowPos();
-    const ImVec2 size = ImGui::GetWindowSize();
+    // 不在帧内时当前窗口为空，读取位置会直接崩溃，这里退回空矩形
+    if (ImGui::GetCurrentContext() == nullptr) {
+        return {};
+    }
+    const ImGuiWindow* window = ImGui::GetCurrentWindowRead();
+    if (window == nullptr) {
+        return {};
+    }
+    const ImVec2 position = window->Pos;
+    const ImVec2 size = window->Size;
     Rect rect{};
     rect.left = position.x;
     rect.top = position.y;

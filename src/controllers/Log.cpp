@@ -133,6 +133,34 @@ void WriteUnlocked(XBase::Log::Level level, const char* message) {
     State().totalCount++;
 }
 
+void WriteBackTrace(DWORD exceptionCode) {
+    // 栈溢出时栈已不可信，跳过回溯避免二次崩溃
+    if (exceptionCode == EXCEPTION_STACK_OVERFLOW) {
+        return;
+    }
+
+    void* frames[24] = {};
+    const USHORT count = CaptureStackBackTrace(1, static_cast<DWORD>(std::size(frames)), frames, nullptr);
+    for (USHORT index = 0; index < count; ++index) {
+        const std::uintptr_t address = reinterpret_cast<std::uintptr_t>(frames[index]);
+        MEMORY_BASIC_INFORMATION mbi{};
+        if (!VirtualQuery(frames[index], &mbi, sizeof(mbi)) || !mbi.AllocationBase) {
+            continue;
+        }
+        char moduleName[MAX_PATH] = {};
+        if (!GetModuleFileNameA(static_cast<HMODULE>(mbi.AllocationBase), moduleName, MAX_PATH)) {
+            continue;
+        }
+        const char* name = std::strrchr(moduleName, '\\');
+        const std::uintptr_t base = reinterpret_cast<std::uintptr_t>(mbi.AllocationBase);
+        std::ostringstream frame;
+        frame << "backtrace " << std::dec << index
+              << ": " << (name ? name + 1 : moduleName)
+              << "+0x" << std::hex << std::uppercase << (address - base);
+        WriteUnlocked(XBase::Log::Level::Error, frame.str().c_str());
+    }
+}
+
 LONG WINAPI HandleUnhandledException(EXCEPTION_POINTERS* exceptionInfo) {
     if (State().initialized && exceptionInfo && exceptionInfo->ExceptionRecord) {
         std::ostringstream message;
@@ -154,6 +182,7 @@ LONG WINAPI HandleUnhandledException(EXCEPTION_POINTERS* exceptionInfo) {
         }
         std::lock_guard<std::mutex> lock(State().mtx);
         WriteUnlocked(XBase::Log::Level::Error, message.str().c_str());
+        WriteBackTrace(exceptionInfo->ExceptionRecord->ExceptionCode);
     }
     return s_previousExceptionFilter
         ? s_previousExceptionFilter(exceptionInfo)

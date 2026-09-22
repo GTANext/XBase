@@ -96,6 +96,9 @@ struct WebViewState {
     XBase::WebView::StateCallback stateCallback = nullptr;
     XBase::WebView::MessageHandler messageHandler = nullptr;
     std::vector<std::string> pendingScripts;
+
+    // 本地页面用虚拟主机映射成 https 源，file 协议下子资源会被当作跨源拦下
+    std::vector<std::pair<std::string, std::string>> virtualHosts;
     EventRegistrationToken webMessageToken{};
     bool webMessageRegistered = false;
 
@@ -124,6 +127,7 @@ WebViewState s_state;
 
 LRESULT CALLBACK HostWindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam);
 void DestroyHostWindow();
+void ApplyVirtualHostsLocked(ICoreWebView2* webview);
 
 std::string ModuleFilePath(const char* fileName) {
     return XBase::Platform::CurrentModuleDirectory() + fileName;
@@ -157,6 +161,20 @@ bool LoadRuntime() {
 std::wstring WideFrom(const std::string& value) {
     return XBase::Platform::Utf8ToWide(value);
 }
+
+void ApplyVirtualHostsLocked(ICoreWebView2* webview) {
+    if (!webview || s_state.virtualHosts.empty()) return;
+    ICoreWebView2_3* webview3 = nullptr;
+    if (FAILED(webview->QueryInterface(IID_PPV_ARGS(&webview3))) || !webview3) return;
+    for (const auto& entry : s_state.virtualHosts) {
+        webview3->SetVirtualHostNameToFolderMapping(
+            WideFrom(entry.first).c_str(),
+            WideFrom(entry.second).c_str(),
+            COREWEBVIEW2_HOST_RESOURCE_ACCESS_KIND_ALLOW);
+    }
+    webview3->Release();
+}
+
 
 std::string Utf8FromCoTaskMem(LPWSTR value) {
     if (!value) return {};
@@ -723,6 +741,8 @@ public:
                     }
                     s_state.pendingScripts.clear();
 
+                    ApplyVirtualHostsLocked(webview);
+
                     s_state.canGoBack = false;
                     s_state.canGoForward = false;
                     s_state.url = SourceOf(webview);
@@ -1223,6 +1243,28 @@ void SetStateCallback(StateCallback callback) {
 void SetMessageHandler(MessageHandler handler) {
     std::lock_guard<std::mutex> lock(s_state.mutex);
     s_state.messageHandler = std::move(handler);
+}
+
+bool MapFolder(const std::string& hostName, const std::string& folderPath) {
+    if (hostName.empty() || folderPath.empty()) return false;
+    std::lock_guard<std::mutex> lock(s_state.mutex);
+
+    bool replaced = false;
+    for (auto& entry : s_state.virtualHosts) {
+        if (entry.first == hostName) {
+            entry.second = folderPath;
+            replaced = true;
+            break;
+        }
+    }
+    if (!replaced) {
+        s_state.virtualHosts.emplace_back(hostName, folderPath);
+    }
+
+    if (s_state.webview) {
+        ApplyVirtualHostsLocked(s_state.webview);
+    }
+    return true;
 }
 
 bool PostJson(const std::string& json) {
