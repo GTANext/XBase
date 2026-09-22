@@ -98,7 +98,9 @@ void Reply(const XBase::Json::Value& id, const XBase::Json::Value& result) {
     response.Set("id", id);
     response.Set("ok", true);
     response.Set("result", result);
-    XBase::WebView::PostJson(response.Serialize(false));
+    if (!XBase::WebView::PostJson(response.Serialize(false))) {
+        XBase::Log::Warn("WebBridge: ??????????????????");
+    }
 }
 
 void Fail(const XBase::Json::Value& id, const std::string& error) {

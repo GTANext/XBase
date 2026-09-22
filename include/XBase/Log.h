@@ -15,6 +15,9 @@ struct Entry {
 };
 
 void Init(const char* filePath = nullptr);
+
+// 模组日志写到 <游戏根目录>\XBase\Mods\<模组名>\debug.log
+void InitForMod(const char* modName);
 void Shutdown();
 bool IsInitialized();
 

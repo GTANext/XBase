@@ -5,6 +5,9 @@
 namespace XBase::Config {
 
 void Init(const std::string& filePath = "");
+
+// 模组配置默认写到 <游戏根目录>\XBase\Mods\<模组名>\config.json
+void InitForMod(const char* modName);
 void Save();
 const std::string& GetFilePath();
 

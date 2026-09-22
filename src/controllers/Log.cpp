@@ -97,7 +97,7 @@ std::string NormalizeToUtf8(const char* message) {
 }
 
 std::string GetDefaultLogPath() {
-    return XBase::Platform::XBaseDirectory() + "logs\\xbase.log";
+    return XBase::Platform::XBaseDirectory() + "debug.log";
 }
 
 bool EnsureDir(const std::string& path) {
@@ -229,6 +229,11 @@ void Init(const char* filePath) {
     }
     InstallCrashHandlers();
     WriteUnlocked(Level::Info, "XBase Log initialized");
+}
+
+void InitForMod(const char* modName) {
+    const std::string path = XBase::Platform::ModLogPath(modName);
+    Init(path.c_str());
 }
 
 void Shutdown() {

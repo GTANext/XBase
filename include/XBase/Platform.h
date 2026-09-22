@@ -37,6 +37,11 @@ bool IsWindows10OrNewer();
 // 所有 XBase 数据统一放在游戏根目录的 XBase 下，与具体 asi 位置无关
 std::string XBaseDirectory();
 
+// 每个模组的数据统一放在 <游戏根目录>\XBase\Mods\<模组名> 下
+std::string ModDirectory(const char* modName);
+std::string ModConfigPath(const char* modName);
+std::string ModLogPath(const char* modName);
+
 bool EnsureDirectory(const std::string& path);
 bool DirectoryExists(const std::string& path);
 bool FileExists(const std::string& path);

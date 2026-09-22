@@ -145,6 +145,21 @@ std::string XBaseDirectory() {
     return game + "XBase\\";
 }
 
+std::string ModDirectory(const char* modName) {
+    const std::string name = (modName && modName[0]) ? modName : "Common";
+    const std::string directory = XBaseDirectory() + "Mods\\" + name + "\\";
+    EnsureDirectory(directory);
+    return directory;
+}
+
+std::string ModConfigPath(const char* modName) {
+    return ModDirectory(modName) + "config.json";
+}
+
+std::string ModLogPath(const char* modName) {
+    return ModDirectory(modName) + "debug.log";
+}
+
 bool IsWindows10OrNewer() {
     // RtlGetVersion 不受兼容性清单影响，能拿到真实版本号
     struct OsVersionInfo {

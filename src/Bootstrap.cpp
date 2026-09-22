@@ -143,10 +143,22 @@ std::string DirectoryFromModule(HMODULE module) {
     return utf8.substr(0, slash + 1);
 }
 
+bool FileExists(const std::string& path) {
+    const DWORD attributes = GetFileAttributesW(Utf8ToWide(path).c_str());
+    return attributes != INVALID_FILE_ATTRIBUTES && !(attributes & FILE_ATTRIBUTE_DIRECTORY);
+}
+
+// 载荷统一放在 <游戏根目录>\XBase\Mods\<宿主名> 下，asi 同级目录仍作为兼容路径
 std::string PayloadPath(HMODULE loaderModule, DetectedGame game) {
     const std::string hostName = HostNameFromModule(loaderModule);
     const std::string fileName = PayloadFileName(game, hostName);
     if (fileName.empty()) return {};
+
+    const std::string gameRoot = DirectoryFromModule(nullptr);
+    if (!gameRoot.empty()) {
+        const std::string shared = gameRoot + "XBase\\Mods\\" + hostName + "\\" + fileName;
+        if (FileExists(shared)) return shared;
+    }
 
     const std::string directory = DirectoryFromModule(loaderModule);
     if (directory.empty()) return hostName + "\\" + fileName;

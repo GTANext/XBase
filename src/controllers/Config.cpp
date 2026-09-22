@@ -81,6 +81,10 @@ XBase::Json::Value* ResolveMutable(const std::string& key) {
 
 namespace XBase::Config {
 
+void InitForMod(const char* modName) {
+    Init(XBase::Platform::ModConfigPath(modName));
+}
+
 void Init(const std::string& filePath) {
     if (filePath.empty()) {
         MigrateLegacyFile("config.json");
