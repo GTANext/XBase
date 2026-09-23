@@ -6,7 +6,7 @@ bool Init();
 void Shutdown();
 void Process();
 
-// 各版本按可用地址实现；不支持的动作保持空操作并返回 false。
+// 各版本按可用地址实现，不支持的动作保持空操作并返回假
 void SetFlyingCars(bool enable);
 bool IsFlyingCars();
 void SetBoatFly(bool enable);

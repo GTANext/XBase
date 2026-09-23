@@ -129,7 +129,7 @@ void ProcessSolidWater() {
         return;
     }
 
-    // 跟随对象每帧同步坐标属过度开销；约 5Hz 更新足够平滑，
+    // 跟随对象每帧同步坐标属过度开销，约每秒五次更新足够平滑，
     // 避免每帧反复执行 GET_WATER_HEIGHT / IS_CHAR_IN_ANY_BOAT 等插件命令。
     static unsigned int s_lastSolidWaterTick = 0;
     const unsigned int now = CTimer::m_snTimeInMilliseconds;

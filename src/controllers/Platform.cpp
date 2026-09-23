@@ -145,8 +145,8 @@ std::string XBaseDirectory() {
     return game + "XBase\\";
 }
 
-// 应用数据目录：<AppData>\com.yuinijika.xbase\
-// 与游戏目录解耦：游戏目录常被整体压缩分享，缓存与 WebView2 用户数据落在那里会被一起打包带走。
+// 应用数据目录位于用户应用数据下的 com.yuinijika.xbase 目录
+// 与游戏目录解耦，游戏目录常被整体压缩分享，缓存与网页视图用户数据落在那里会被一起打包带走
 // 只读环境变量而不调 SHGetKnownFolderPath，避免额外的 shell32 链接与 NTDDI 版本依赖。
 std::string AppDataDirectory() {
     wchar_t buffer[MAX_PATH] = {};

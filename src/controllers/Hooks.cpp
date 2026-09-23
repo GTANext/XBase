@@ -274,7 +274,7 @@ SIZE WindowSizeFor(XBase::Hooks::WindowMode mode, const SIZE& client) {
     return size;
 }
 
-// 按模式摆放窗口：无边框铺满显示器，窗口模式居中并留出边框
+// 按模式摆放窗口，无边框铺满显示器，窗口模式居中并留出边框
 void ApplyWindowModeGeometry(HWND window, XBase::Hooks::WindowMode mode, SIZE& clientSize, bool moveWindow) {
     RECT monitor{};
     if (!MonitorRect(window, monitor)) return;
@@ -385,7 +385,7 @@ CreateDevice8Fn g_originalCreateDevice8 = nullptr;
 #endif
 bool g_startupWindowModePrepared = false;
 
-// 设备创建钩子：参考实现的关键一步，游戏从一开始就建立窗口期交换链
+// 设备创建钩子是参考实现的关键一步，游戏从一开始就建立窗口期交换链
 #if defined(GTASA)
 HRESULT STDMETHODCALLTYPE CreateDevice9Hook(
     IDirect3D9* self, UINT adapter, D3DDEVTYPE deviceType, HWND focusWindow,
@@ -470,7 +470,7 @@ bool PrepareStartupWindowModeInternal(XBase::Hooks::WindowMode mode) {
     void* original = nullptr;
     bool replaced = false;
 #if defined(GTASA)
-    // 通过已加载的 d3d9.dll 取接口，兼容 d3d9 包装层（DGX 之类），保证拿到与游戏相同的 vtable
+    // 通过已加载的 d3d9 库取接口，兼容 d3d9 包装层，保证拿到与游戏相同的虚函数表
     HMODULE module9 = GetModuleHandleW(L"d3d9.dll");
     if (!module9) module9 = LoadLibraryW(L"d3d9.dll");
     if (!module9) return false;
@@ -520,7 +520,7 @@ bool PrepareStartupWindowModeInternal(XBase::Hooks::WindowMode mode) {
 #endif
 }
 
-// 让游戏自身认为运行在窗口模式：RsGlobal 的窗口与分辨率状态
+// 让游戏自身认为运行在窗口模式，改写 RsGlobal 里的窗口与分辨率状态
 void SyncGameDisplayState() {
     if (!g_window || !IsWindow(g_window)) return;
     RECT client{};
@@ -571,7 +571,7 @@ void SyncGameDisplayState() {
     }
 }
 
-// 同步游戏自身的呈现参数：窗口模式下写成窗口化参数，
+// 同步游戏自身的呈现参数，窗口模式下写成窗口化参数，
 // 游戏或 d3d8to9 包装层按这些参数重建设备时也会得到窗口期交换链
 void SyncGamePresentParameters(HWND window) {
     if (!window || !IsWindow(window)) return;
@@ -701,7 +701,7 @@ void MaintainCursorClip() {
     }
 }
 
-// 窗口或呈现参数被游戏改回时纠偏；设备重建只可能在启动阶段被游戏自己触发，
+// 窗口或呈现参数被游戏改回时纠偏，设备重建只可能在启动阶段被游戏自己触发，
 // 运行中修改显示模式需要重启游戏才生效。未启用窗口模式时不做任何干预
 void MaintainWindowMode() {
     if (!g_window || !IsWindow(g_window)) return;
@@ -746,7 +746,7 @@ void MaintainWindowMode() {
         clientSize.cx = client.right - client.left;
         clientSize.cy = client.bottom - client.top;
     }
-    // 维护阶段只纠正样式，无边框模式额外保证铺满显示器；同时保持游戏显示状态同步
+    // 维护阶段只纠正样式，无边框模式额外保证铺满显示器，同时保持游戏显示状态同步
     ApplyWindowModeGeometry(g_window, g_windowMode, clientSize, false);
     SyncGameDisplayState();
 

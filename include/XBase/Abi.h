@@ -1,8 +1,8 @@
 #pragma once
 
 // 共享运行时与 mod 侧共用这份契约。
-// 双方都只把它当作 POD 结构使用，不需要导入导出宏：
-// mod 用 GetProcAddress 取函数表，共享库用 extern "C" 暴露唯一的入口函数。
+// 双方都只把它当作纯数据结构使用，不需要导入导出宏，
+// mod 侧按名字取函数地址拿到函数表，共享库以 C 链接方式暴露唯一的入口函数
 
 #include <cstdint>
 
@@ -30,12 +30,12 @@ struct XBaseRuntime {
     std::uint32_t size;
     std::uint32_t abiVersion;
 
-    // 生命周期。acquire 递增引用计数，release 递减；归零后不立即卸载，
+    // 生命周期，获取时递增引用计数，释放时递减，归零后不立即卸载，
     // 避免 mod 反复启停时重复创建 D3D 钩子
     int (*acquire)(const char* modName);
     int (*release)(const char* modName);
 
-    // 路径查询。调用方提供缓冲区，返回写入字节数；缓冲区不足时返回需要的长度
+    // 路径查询，调用方提供缓冲区，返回写入字节数，缓冲区不足时返回需要的长度
     int (*gameDirectory)(char* buffer, std::uint32_t capacity);
     int (*xbaseDirectory)(char* buffer, std::uint32_t capacity);
     int (*modDirectory)(const char* modName, char* buffer, std::uint32_t capacity);

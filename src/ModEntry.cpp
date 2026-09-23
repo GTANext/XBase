@@ -6,7 +6,7 @@
 extern "C" void XBasePayloadAttach();
 extern "C" void XBasePayloadDetach();
 
-// 单文件 asi 的入口：共享运行时就位后直接跑本模块里的业务入口
+// 单文件 asi 的入口，共享运行时就位后直接跑本模块里的业务入口
 BOOL WINAPI DllMain(HINSTANCE module, DWORD reason, LPVOID) {
     if (reason == DLL_PROCESS_ATTACH) {
         DisableThreadLibraryCalls(module);

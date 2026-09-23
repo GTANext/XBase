@@ -15,7 +15,7 @@ bool AttachRuntime(ModuleHandle loaderModule);
 void Detach();
 bool IsAttached();
 
-// 共享运行时的函数表，适配层从这里取；运行时未就位时返回空指针
+// 共享运行时的函数表，适配层从这里取，运行时未就位时返回空指针
 const XBaseRuntime* GetRuntimeTable();
 
 } // namespace XBase::Bootstrap

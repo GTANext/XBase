@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <windows.h>
 
-// XBase.asi 的入口：只负责把共享运行时拉起来，不加载任何 mod
+// XBase 引导入口，只负责把共享运行时拉起来，不加载任何 mod
 BOOL WINAPI DllMain(HINSTANCE module, DWORD reason, LPVOID) {
     if (reason == DLL_PROCESS_ATTACH) {
         DisableThreadLibraryCalls(module);

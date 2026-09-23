@@ -79,7 +79,7 @@ bool LooksLikeUtf8(const char* text) {
     return true;
 }
 
-// 系统 ANSI(ACP) → UTF-8（兼容外部窄字符串）
+// 系统窄字符编码转 UTF-8，兼容外部传入的窄字符串
 std::string AcpToUtf8(const char* acp) {
     if (!acp || !acp[0]) return {};
     const int wideLen = MultiByteToWideChar(CP_ACP, 0, acp, -1, nullptr, 0);
@@ -89,7 +89,7 @@ std::string AcpToUtf8(const char* acp) {
     return XBase::Platform::WideToUtf8(wide);
 }
 
-// 日志消息统一成 UTF-8：合法 UTF-8 原样保留，否则按系统 ACP 转码
+// 日志消息统一成 UTF-8，合法 UTF-8 原样保留，否则按系统窄字符编码转码
 std::string NormalizeToUtf8(const char* message) {
     if (!message) return {};
     if (LooksLikeUtf8(message)) return message;
@@ -115,7 +115,7 @@ void WriteUnlocked(XBase::Log::Level level, const char* message) {
     std::string line = "[" + ts + "] [" + LevelName(level) + "] " + utf8Message;
 
     if (State().file.is_open()) {
-        // binary 模式逐字节写入，避免 text 模式对 \n 及本地化码页做转换
+        // 二进制模式逐字节写入，避免文本模式对换行和本地化码页做转换
         State().file.write(line.data(), static_cast<std::streamsize>(line.size()));
         State().file.put('\n');
         State().file.flush();
@@ -218,7 +218,7 @@ void Init(const char* filePath) {
     State().filePath = filePath ? filePath : GetDefaultLogPath();
     EnsureDir(State().filePath);
 
-    // 每次启动都清空上次日志；binary + UTF-8 BOM，保证任何编辑器都能正确显示
+    // 每次启动都清空上次日志，二进制写入加 UTF-8 字节序标记，保证任何编辑器都能正确显示
     const std::wstring widePath = XBase::Platform::Utf8ToWide(State().filePath);
     State().file.open(std::filesystem::path(widePath), std::ios::binary | std::ios::out | std::ios::trunc);
     State().initialized = true;

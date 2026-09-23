@@ -88,7 +88,7 @@ DetectedGame DetectGame() {
 }
 
 // 载荷目录与文件名优先取宿主 ASI 导出的基名，未导出时按 ASI 文件名推导。
-// XMenu 不导出基名，按文件名找 XMenu\XMenuSA.dll
+// XMenu 不导出基名，所以按文件名推导出载荷所在的 XMenu 目录与文件名
 // WebView2 导出基名 WebView2，主 ASI 名字因此不影响载荷命名
 using PayloadBaseNameFn = const char*(*)();
 
@@ -194,7 +194,7 @@ void ShowError(const std::string& hostName, const char* message) {
     MessageBoxW(HWND_DESKTOP, Utf8ToWide(message).c_str(), Utf8ToWide(hostName).c_str(), MB_OK | MB_ICONERROR);
 }
 
-// 共享运行时必须先于任何业务代码就位：mod 拿到的函数表全部指向它
+// 共享运行时必须先于任何业务代码就位，mod 拿到的函数表全部指向它
 bool EnsureRuntime(HMODULE module, DetectedGame game, const std::string& hostName) {
     if (runtimeTable) return true;
 

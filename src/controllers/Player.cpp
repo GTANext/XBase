@@ -304,7 +304,7 @@ void NotifyGameInit() {
     s_freezeWantedLevel = false;
     s_hasDeathPosition = false;
 
-    // 游戏对象和作弊布尔状态由 initGame 重建；这里只恢复不会随存档重建的代码/常量补丁。
+    // 游戏对象和作弊开关状态由游戏初始化事件重建，这里只恢复不随存档重建的代码与常量补丁
     SetFastSprint(false);
     SetSprintEverywhere(false);
     s_infiniteSprintPatch.applied = false;

@@ -46,7 +46,7 @@ using GetBrowserVersionStringFn = HRESULT(STDAPICALLTYPE*)(
 
 constexpr const wchar_t* kHostWindowClass = L"XBaseWebViewHost";
 
-// 抓帧模式参数：空闲与交互时的抓帧间隔、全屏状态检测间隔、交互判定阈值
+// 抓帧模式参数，包括空闲与交互时的抓帧间隔、全屏状态检测间隔和交互判定阈值
 constexpr unsigned long long kCaptureIdleIntervalMs = 500;
 constexpr unsigned long long kCaptureActiveIntervalMs = 120;
 constexpr unsigned long long kCaptureActiveWindowMs = 1500;
@@ -351,7 +351,7 @@ void ApplyZoomLocked() {
     }
 }
 
-// 调用方需持有 s_state.mutex；异步创建结束后才允许销毁宿主窗口
+// 调用方需持有状态锁，异步创建结束后才允许销毁宿主窗口
 void ReleaseControllerLocked() {
     if (s_state.webview && s_state.tokensRegistered) {
         s_state.webview->remove_NavigationStarting(s_state.navigationStartingToken);
@@ -421,7 +421,7 @@ bool DecodeImageToBgra(const std::vector<unsigned char>& data, unsigned char*& p
         return false;
     }
 
-    // stb 输出 RGBA，D3D9 纹理需要 BGRA；就地交换后直接上传，避免额外拷贝
+    // 图像库输出 RGBA，D3D9 纹理需要 BGRA，就地交换后直接上传避免额外拷贝
     const std::size_t pixelCount = static_cast<std::size_t>(width) * height;
     for (std::size_t index = 0; index < pixelCount; ++index) {
         std::swap(decoded[index * 4], decoded[index * 4 + 2]);
@@ -1029,7 +1029,7 @@ void ProcessKeyboardFallback() {
     XBase::Detail::Input::PollFromSystem();
 }
 
-// 游戏在游玩状态会隐藏系统光标，面板以原生窗口显示时需要把光标重新显示出来；
+// 游戏在游玩状态会隐藏系统光标，面板以原生窗口显示时需要把光标重新显示出来，
 // 独占全屏抓帧预览不占屏幕，保持游戏自己的光标状态
 void ProcessCursorVisibility() {
     bool panelShown = false;
@@ -1112,7 +1112,7 @@ void ProcessCreation() {
         }
     }
 
-    // WebView2 用户数据放 <AppData>\com.yuinijika.xbase\webview2，不落在游戏目录：
+    // 网页视图用户数据放用户应用数据下 com.yuinijika.xbase 的 webview2 目录，不落在游戏目录，
     // 游戏目录常被整体打包分享，EBWebView 里的缓存与登录态不该跟着一起走
     std::string dataFolder = XBase::Platform::AppDataDirectory();
     if (!dataFolder.empty()) {
@@ -1152,7 +1152,7 @@ void ProcessCreation() {
     s_state.createInFlight = true;
 }
 
-// 关闭面板会释放浏览器与宿主窗口，之后再次 SetVisible(true) 会重新创建
+// 关闭面板会释放浏览器与宿主窗口，之后再次设为可见会重新创建
 bool Close() {
     if (!IsRuntimeAvailable()) return false;
 
