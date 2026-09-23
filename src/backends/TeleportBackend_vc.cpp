@@ -74,7 +74,7 @@ bool Marker(bool) { return false; }
 
 bool Center() { return To({ 0.0f, 0.0f, 3.0f }, 0); }
 
-bool GetMapBounds(MapBounds& bounds) {
+bool GetMapBounds(XBase::Teleport::MapBounds& bounds) {
     if (CRadar::m_radarRange <= 0.0f) return false;
     const CVector2D& origin = CRadar::vec2DRadarOrigin;
     bounds.minX = origin.x - CRadar::m_radarRange;

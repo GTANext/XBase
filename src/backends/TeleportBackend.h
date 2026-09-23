@@ -10,6 +10,6 @@ bool Forward(float distance);
 bool MapPosition(const Vec3& position, bool spawnUnderwater);
 bool Marker(bool spawnUnderwater);
 bool Center();
-bool GetMapBounds(MapBounds& bounds);
+bool GetMapBounds(XBase::Teleport::MapBounds& bounds);
 
 } // namespace XBase::Detail::TeleportBackend

@@ -37,6 +37,11 @@ bool IsWindows10OrNewer();
 // 所有 XBase 数据统一放在游戏根目录的 XBase 下，与具体 asi 位置无关
 std::string XBaseDirectory();
 
+// 与游戏目录无关的应用数据目录：<AppData>\com.yuinijika.xbase\
+// 缓存、WebView2 用户数据这类不该随游戏目录被整体打包分享的东西放这里。
+// 取不到 AppData 时返回空字符串，调用方自行决定是否退回游戏目录。
+std::string AppDataDirectory();
+
 // 每个模组的数据统一放在 <游戏根目录>\XBase\Mods\<模组名> 下
 std::string ModDirectory(const char* modName);
 std::string ModConfigPath(const char* modName);

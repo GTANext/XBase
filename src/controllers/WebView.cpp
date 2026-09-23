@@ -1104,8 +1104,28 @@ void ProcessCreation() {
         }
     }
 
-    const std::string dataFolder = XBase::Platform::XBaseDirectory() + "webview2";
-    Platform::EnsureDirectory(dataFolder);
+    // WebView2 用户数据放 <AppData>\com.yuinijika.xbase\webview2，不落在游戏目录：
+    // 游戏目录常被整体打包分享，EBWebView 里的缓存与登录态不该跟着一起走
+    std::string dataFolder = XBase::Platform::AppDataDirectory();
+    if (!dataFolder.empty()) {
+        // EnsureDirectory 只建最后一级，先把 com.yuinijika.xbase 建出来
+        Platform::EnsureDirectory(dataFolder);
+        dataFolder += "webview2";
+    }
+    if (dataFolder.empty() || !Platform::EnsureDirectory(dataFolder)) {
+        // AppData 不可用时退回游戏目录，至少保证网页视图可用
+        dataFolder = XBase::Platform::XBaseDirectory() + "webview2";
+        Platform::EnsureDirectory(dataFolder);
+    }
+
+    static bool legacyDataFolderWarned = false;
+    if (!legacyDataFolderWarned) {
+        legacyDataFolderWarned = true;
+        const std::string legacy = XBase::Platform::XBaseDirectory() + "webview2";
+        if (Platform::DirectoryExists(legacy)) {
+            Log::Warn("WebView: 检测到旧用户数据目录 <游戏目录>\\XBase\\webview2，已改用 AppData，旧目录可手动删除");
+        }
+    }
 
     auto* handler = new EnvironmentCompletedHandler();
     const HRESULT hr = s_runtime.createEnvironment(

@@ -145,6 +145,22 @@ std::string XBaseDirectory() {
     return game + "XBase\\";
 }
 
+// 应用数据目录：<AppData>\com.yuinijika.xbase\
+// 与游戏目录解耦：游戏目录常被整体压缩分享，缓存与 WebView2 用户数据落在那里会被一起打包带走。
+// 只读环境变量而不调 SHGetKnownFolderPath，避免额外的 shell32 链接与 NTDDI 版本依赖。
+std::string AppDataDirectory() {
+    wchar_t buffer[MAX_PATH] = {};
+    const DWORD length = GetEnvironmentVariableW(L"APPDATA", buffer, MAX_PATH);
+    if (length == 0 || length >= MAX_PATH) {
+        return {};
+    }
+
+    std::wstring root(buffer, length);
+    if (root.empty()) return {};
+    if (root.back() != L'\\' && root.back() != L'/') root += L'\\';
+    return WideToUtf8(root) + "com.yuinijika.xbase\\";
+}
+
 std::string ModDirectory(const char* modName) {
     const std::string name = (modName && modName[0]) ? modName : "Common";
     const std::string directory = XBaseDirectory() + "Mods\\" + name + "\\";
