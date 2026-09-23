@@ -92,12 +92,12 @@ std::string ReadText(const std::wstring& path) {
     return content;
 }
 
-std::wstring ModDirectory(const std::wstring& mod) {
+std::wstring RuntimeDirectory(const std::wstring& mod) {
     if (mod.empty()) return g_xbaseDir;
-    return Join(Join(g_xbaseDir, L"Mods"), mod);
+    return Join(Join(g_xbaseDir, L"Runtime"), mod);
 }
 
-void RefreshMods() {
+void RefreshRuntimes() {
     SendMessageW(g_modList, LB_RESETCONTENT, 0, 0);
     SendMessageW(g_fileList, LB_RESETCONTENT, 0, 0);
     SetWindowTextW(g_content, L"");
@@ -106,7 +106,7 @@ void RefreshMods() {
     SendMessageW(g_modList, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"XBase 自身"));
     g_mods.emplace_back();
 
-    const std::wstring modsRoot = Join(g_xbaseDir, L"Mods");
+    const std::wstring modsRoot = Join(g_xbaseDir, L"Runtime");
     WIN32_FIND_DATAW data{};
     HANDLE find = FindFirstFileW(Join(modsRoot, L"*").c_str(), &data);
     if (find != INVALID_HANDLE_VALUE) {
@@ -130,7 +130,7 @@ void RefreshFiles() {
     const int index = static_cast<int>(SendMessageW(g_modList, LB_GETCURSEL, 0, 0));
     if (index < 0 || index >= static_cast<int>(g_mods.size())) return;
 
-    const std::wstring directory = ModDirectory(g_mods[index]);
+    const std::wstring directory = RuntimeDirectory(g_mods[index]);
     const wchar_t* candidates[] = {L"config.json", L"debug.log", L"hotkeys.json"};
     for (const wchar_t* name : candidates) {
         if (FileExists(Join(directory, name))) {
@@ -151,7 +151,7 @@ void ShowSelectedFile() {
 
     wchar_t name[260] = {};
     SendMessageW(g_fileList, LB_GETTEXT, fileIndex, reinterpret_cast<LPARAM>(name));
-    const std::wstring path = Join(ModDirectory(g_mods[modIndex]), name);
+    const std::wstring path = Join(RuntimeDirectory(g_mods[modIndex]), name);
     const std::string content = ReadText(path);
     if (content.empty()) {
         SetWindowTextW(g_content, L"(空文件或读取失败)");
@@ -163,7 +163,7 @@ void ShowSelectedFile() {
 void OpenCurrentDirectory() {
     const int modIndex = static_cast<int>(SendMessageW(g_modList, LB_GETCURSEL, 0, 0));
     const std::wstring directory = modIndex >= 0 && modIndex < static_cast<int>(g_mods.size())
-        ? ModDirectory(g_mods[modIndex])
+        ? RuntimeDirectory(g_mods[modIndex])
         : g_xbaseDir;
     ShellExecuteW(nullptr, L"open", directory.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 }
@@ -213,7 +213,7 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
             SendMessageW(control, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
         }
 
-        RefreshMods();
+        RefreshRuntimes();
         return 0;
     }
     case WM_SIZE: {
@@ -233,7 +233,7 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lPa
         } else if (id == IdFileList && code == LBN_SELCHANGE) {
             ShowSelectedFile();
         } else if (id == IdRefresh) {
-            RefreshMods();
+            RefreshRuntimes();
         } else if (id == IdOpenDir) {
             OpenCurrentDirectory();
         } else if (id == IdCopy) {

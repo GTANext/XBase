@@ -103,7 +103,7 @@ if not exist "build\XBase.sln" (
     echo [Error] build\XBase.sln not found.
     goto fail
 )
-for %%T in (XBaseBootstrap XBasePayloadEntry XBaseSA XBaseVC XBaseIII) do (
+for %%T in (XBaseBootstrap XBasePayloadEntry XBaseRuntimeEntry XBaseModEntry XBaseSA XBaseVC XBaseIII) do (
     if not exist "build\%%T.vcxproj" (
         echo [Error] build\%%T.vcxproj was not generated.
         goto fail
@@ -134,6 +134,20 @@ if errorlevel 1 (
     goto fail
 )
 
+"!MSBUILD_EXE!" "build\XBase.sln" /m /t:XBaseRuntimeEntry /p:Configuration=%CONFIG% /p:Platform=Win32 /p:PlatformToolset=%PLATFORM_TOOLSET% /verbosity:minimal
+if errorlevel 1 (
+    echo.
+    echo [Error] XBaseRuntimeEntry build failed.
+    goto fail
+)
+
+"!MSBUILD_EXE!" "build\XBase.sln" /m /t:XBaseModEntry /p:Configuration=%CONFIG% /p:Platform=Win32 /p:PlatformToolset=%PLATFORM_TOOLSET% /verbosity:minimal
+if errorlevel 1 (
+    echo.
+    echo [Error] XBaseModEntry build failed.
+    goto fail
+)
+
 "!MSBUILD_EXE!" "build\XBase.sln" /m /t:XBaseSA /p:Configuration=%CONFIG% /p:Platform=Win32 /p:PlatformToolset=%PLATFORM_TOOLSET% /verbosity:minimal
 if errorlevel 1 (
     echo.
@@ -155,7 +169,7 @@ if errorlevel 1 (
     goto fail
 )
 
-for %%T in (XBaseBootstrap XBasePayloadEntry XBaseSA XBaseVC XBaseIII) do (
+for %%T in (XBaseBootstrap XBasePayloadEntry XBaseRuntimeEntry XBaseModEntry XBaseSA XBaseVC XBaseIII) do (
     if not exist "build\bin\%CONFIG%\%%T.lib" (
         echo [Error] build\bin\%CONFIG%\%%T.lib was not produced.
         goto fail
@@ -163,6 +177,37 @@ for %%T in (XBaseBootstrap XBasePayloadEntry XBaseSA XBaseVC XBaseIII) do (
 )
 
 if /i "%CONFIG%"=="Release" (
+    rem 共享运行时只出 Release：plugin-sdk 的 output/lib 只有 Release 库，
+    rem Debug 链接会因运行库与迭代器调试级别不匹配而失败
+    "!MSBUILD_EXE!" "build\XBase.sln" /m /t:XBaseRuntimeSA /p:Configuration=%CONFIG% /p:Platform=Win32 /p:PlatformToolset=%PLATFORM_TOOLSET% /verbosity:minimal
+    if errorlevel 1 (
+        echo.
+        echo [Error] XBaseRuntimeSA build failed.
+        goto fail
+    )
+
+    "!MSBUILD_EXE!" "build\XBase.sln" /m /t:XBaseRuntimeVC /p:Configuration=%CONFIG% /p:Platform=Win32 /p:PlatformToolset=%PLATFORM_TOOLSET% /verbosity:minimal
+    if errorlevel 1 (
+        echo.
+        echo [Error] XBaseRuntimeVC build failed.
+        goto fail
+    )
+
+    "!MSBUILD_EXE!" "build\XBase.sln" /m /t:XBaseRuntimeIII /p:Configuration=%CONFIG% /p:Platform=Win32 /p:PlatformToolset=%PLATFORM_TOOLSET% /verbosity:minimal
+    if errorlevel 1 (
+        echo.
+        echo [Error] XBaseRuntimeIII build failed.
+        goto fail
+    )
+
+    for %%T in (XBaseSA XBaseVC XBaseIII) do (
+        if not exist "build\bin\%CONFIG%\%%T.dll" (
+            echo [Error] build\bin\%CONFIG%\%%T.dll was not produced.
+            goto fail
+        )
+    )
+
+
     call :stage_sdk "..\XMenu"
     call :stage_sdk "..\III.VC.SA.WebView2"
 )
@@ -173,6 +218,8 @@ call :build_viewer "%CONFIG%"
 echo.
 echo Build completed successfully.
 echo Outputs: XBaseBootstrap.lib, XBasePayloadEntry.lib, XBaseSA.lib, XBaseVC.lib, XBaseIII.lib
+echo           XBaseRuntimeEntry.lib, XBaseModEntry.lib
+echo           XBaseSA.dll, XBaseVC.dll, XBaseIII.dll
 goto success
 
 rem ============================================================
@@ -213,7 +260,7 @@ if errorlevel 1 (
     echo [Error] Failed to stage XBase public headers into %SDK_TARGET%.
     exit /b 1
 )
-for %%T in (XBaseBootstrap XBasePayloadEntry XBaseSA XBaseVC XBaseIII) do (
+for %%T in (XBaseBootstrap XBasePayloadEntry XBaseRuntimeEntry XBaseModEntry XBaseSA XBaseVC XBaseIII) do (
     copy /Y "build\bin\%CONFIG%\%%T.lib" "%SDK_TARGET%\lib\%%T.lib" >nul
     if errorlevel 1 (
         echo [Error] Failed to stage %%T.lib into %SDK_TARGET%.

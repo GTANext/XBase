@@ -161,20 +161,26 @@ std::string AppDataDirectory() {
     return WideToUtf8(root) + "com.yuinijika.xbase\\";
 }
 
-std::string ModDirectory(const char* modName) {
+// 每个模组的数据放在 XBase 目录下以模组名命名的子目录，二进制统一放 Library 子目录，两者分开
+// Mod 开头的函数与目录同名是正式命名，Runtime 开头的函数只是兼容别名，两者返回同一路径
+std::string RuntimeDirectory(const char* modName) {
     const std::string name = (modName && modName[0]) ? modName : "Common";
     const std::string directory = XBaseDirectory() + "Mods\\" + name + "\\";
     EnsureDirectory(directory);
     return directory;
 }
 
-std::string ModConfigPath(const char* modName) {
-    return ModDirectory(modName) + "config.json";
+std::string RuntimeConfigPath(const char* modName) {
+    return RuntimeDirectory(modName) + "config.json";
 }
 
-std::string ModLogPath(const char* modName) {
-    return ModDirectory(modName) + "debug.log";
+std::string RuntimeLogPath(const char* modName) {
+    return RuntimeDirectory(modName) + "debug.log";
 }
+
+std::string ModDirectory(const char* modName) { return RuntimeDirectory(modName); }
+std::string ModConfigPath(const char* modName) { return RuntimeConfigPath(modName); }
+std::string ModLogPath(const char* modName) { return RuntimeLogPath(modName); }
 
 bool IsWindows10OrNewer() {
     // RtlGetVersion 不受兼容性清单影响，能拿到真实版本号

@@ -42,7 +42,12 @@ std::string XBaseDirectory();
 // 取不到 AppData 时返回空字符串，调用方自行决定是否退回游戏目录。
 std::string AppDataDirectory();
 
-// 每个模组的数据统一放在 <游戏根目录>\XBase\Mods\<模组名> 下
+// 每个模组的数据放在 XBase 目录下以模组名命名的子目录
+// 二进制统一放 XBase 目录下的 Library 子目录，与数据分开
+// Mod 开头的函数与目录同名是正式命名，Runtime 开头的函数只是兼容别名，两者返回同一路径
+std::string RuntimeDirectory(const char* modName);
+std::string RuntimeConfigPath(const char* modName);
+std::string RuntimeLogPath(const char* modName);
 std::string ModDirectory(const char* modName);
 std::string ModConfigPath(const char* modName);
 std::string ModLogPath(const char* modName);
