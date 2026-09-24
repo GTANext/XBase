@@ -17,9 +17,12 @@ struct Info {
     std::string version;
     std::string author;
     std::string description;
+    std::string license;           // SPDX 标识符，例如 MIT
     std::string homepage;
     std::string xbaseRequirement;  // engines.xbase 原文，例如 ">=0.1.0"
-    // dependencies 的键值对，值是 Node 语义的版本区间
+    // dependencies 的键值对，值是 Node 语义的版本区间。
+    // 名字对应其它 mod 的按对方清单版本校验；
+    // 对应不到 mod 的是第三方运行库声明（如 asi loader），只声明不做自动校验
     std::vector<std::pair<std::string, std::string>> dependencies;
 };
 
@@ -34,6 +37,14 @@ bool Satisfies(const std::string& requirement, std::uint32_t runtimeNumber);
 
 // 版本字符串转数字编码，前缀 v 忽略，预发布后缀不参与比较；格式不合法返回假
 bool ParseVersion(const std::string& text, std::uint32_t& number);
+
+// 发布通道标记：latest / alpha / beta / rc / stable / nightly / dev，大小写不敏感。
+// 这类值不做数字比较，按版本字符串里是否带该通道字样判定
+bool IsChannelToken(const std::string& value);
+
+// 同 Satisfies，但直接拿版本字符串判定，通道标记可以真正匹配上
+// （例如要求 alpha 时，对方版本串必须带 alpha 字样）；版本串为空视为不满足
+bool SatisfiesText(const std::string& requirement, const std::string& runtimeVersion);
 
 // 便捷封装：清单里的 engines.xbase 与 dependencies 逐一校验。
 // 清单不存在视为无约束返回真；存在但解析失败或校验不通过时返回假并给出原因

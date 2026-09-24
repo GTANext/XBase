@@ -202,7 +202,18 @@ bool RangeContains(const VersionRange& range, std::uint32_t number) {
     return number < range.upper;
 }
 
+std::string ToLower(std::string value) {
+    for (char& character : value) {
+        character = static_cast<char>(std::tolower(static_cast<unsigned char>(character)));
+    }
+    return value;
+}
+
 bool ClauseSatisfied(const std::string& clause, std::uint32_t runtimeNumber) {
+    // latest 是第三方运行库的专用写法，跟随最新发行版，不做版本锁定
+    if (ToLower(Trim(clause)) == "latest") {
+        return true;
+    }
     static const char* const operators[] = {">=", "<=", "==", ">", "<", "^", "~", "="};
 
     // 连字符区间 1.2.3 - 2.0.0
@@ -263,6 +274,21 @@ bool GroupSatisfied(const std::string& group, std::uint32_t runtimeNumber) {
 
 } // namespace
 
+// 发布通道标记。latest 跟随最新发行版，其余按通道筛选，
+// 都不做数字比较，走 SatisfiesText 的版本字符串匹配
+bool IsChannelToken(const std::string& value) {
+    static const char* const channels[] = {"latest", "alpha", "beta", "rc", "stable", "nightly", "dev"};
+    const std::string lower = ToLower(Trim(value));
+    for (const char* channel : channels) {
+        if (lower == channel) return true;
+    }
+    return false;
+}
+
+bool VersionHasChannel(const std::string& versionText, const std::string& channel) {
+    return ToLower(versionText).find(ToLower(Trim(channel))) != std::string::npos;
+}
+
 // 三段完整版本号的解析，预发布后缀不影响比较；依赖与约束比较都用它
 bool ParseVersionNumber(const std::string& text, std::uint32_t& number) {
     PartialVersion partial;
@@ -301,6 +327,7 @@ bool Load(const std::string& modName, Info& out) {
     if (root["version"].IsString()) out.version = root["version"].AsString();
     if (root["author"].IsString()) out.author = root["author"].AsString();
     if (root["description"].IsString()) out.description = root["description"].AsString();
+    if (root["license"].IsString()) out.license = root["license"].AsString();
     if (root["homepage"].IsString()) out.homepage = root["homepage"].AsString();
 
     const Json::Value& engines = root["engines"];
@@ -322,9 +349,25 @@ bool Load(const std::string& modName, Info& out) {
     return true;
 }
 
+bool SatisfiesText(const std::string& requirement, const std::string& runtimeVersion) {
+    const std::string trimmed = Trim(requirement);
+    // 通道标记按版本字符串匹配，数字区间按数字比较，两条路互不干扰
+    if (IsChannelToken(trimmed)) {
+        if (ToLower(trimmed) == "latest") {
+            return !runtimeVersion.empty();
+        }
+        return !runtimeVersion.empty() && VersionHasChannel(runtimeVersion, trimmed);
+    }
+    std::uint32_t number = 0;
+    if (!ParseVersion(runtimeVersion, number)) {
+        return false;
+    }
+    return Satisfies(requirement, number);
+}
+
 bool Satisfies(const std::string& requirement, std::uint32_t runtimeNumber) {
     const std::string trimmed = Trim(requirement);
-    if (trimmed.empty() || trimmed == "*") {
+    if (trimmed.empty() || trimmed == "*" || IsChannelToken(trimmed)) {
         return true;
     }
     // || 分隔的组任一满足即可
@@ -357,24 +400,20 @@ bool Validate(const std::string& modName, std::string& failureReason) {
     }
 
     std::string problems;
-    if (!Satisfies(info.xbaseRequirement, kVersionNumber)) {
+    if (!SatisfiesText(info.xbaseRequirement, kVersionString)) {
         problems += "XBase " + (info.xbaseRequirement.empty() ? std::string("*") : info.xbaseRequirement)
             + " is required, installed is " + kVersionString;
     }
 
-    // 依赖库按名字找其它 mod 的清单版本，找不到或版本不符都算未满足
+    // 依赖分两类：名字对应其它 mod 的按对方清单版本校验；
+    // 对应不到 mod 的是第三方运行库（asi loader、补丁、图形转换层这类），只声明不自动校验，
+    // 版本是否匹配由 mod 随包分发或安装说明保证
     for (const auto& dependency : info.dependencies) {
         Info dependencyInfo;
-        const bool dependencyExists = Load(dependency.first, dependencyInfo);
-        if (!dependencyExists || !dependencyInfo.valid) {
-            if (!problems.empty()) problems += "\n";
-            problems += "Missing dependency: " + dependency.first
-                + " (required " + (dependency.second.empty() ? std::string("*") : dependency.second) + ")";
+        if (!Load(dependency.first, dependencyInfo) || !dependencyInfo.valid) {
             continue;
         }
-        std::uint32_t dependencyNumber = 0;
-        if (!ParseVersion(dependencyInfo.version, dependencyNumber)
-            || !Satisfies(dependency.second, dependencyNumber)) {
+        if (!SatisfiesText(dependency.second, dependencyInfo.version)) {
             if (!problems.empty()) problems += "\n";
             problems += "Dependency " + dependency.first + " is at " + dependencyInfo.version
                 + ", required " + dependency.second;

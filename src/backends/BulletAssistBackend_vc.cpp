@@ -1,9 +1,11 @@
 #include "BulletAssistBackend.h"
+#include <cstdio>
 #include "PedBackend.h"
 #include "RuntimeGuard.h"
 #include "common.h"
 
 #include <XBase/Core.h>
+#include <XBase/Log.h>
 #include <XBase/Ped.h>
 #include "CCamera.h"
 #include "CColModel.h"
@@ -556,28 +558,71 @@ void DrawCollision(ImDrawList* drawList, CEntity* entity, ImU32 boxColor, ImU32 
     }
 }
 
-void DrawFrameNode(ImDrawList* drawList, RwFrame* frame, ImU32 color) {
-    if (!frame) return;
-    const RwMatrix* ltm = RwFrameGetLTM(frame);
-    if (!ltm) return;
-    const RwV3d* pos = RwMatrixGetPos(ltm);
-    if (!pos) return;
-    const CVector from{pos->x, pos->y, pos->z};
-    for (RwFrame* child = frame->child; child; child = child->next) {
-        const RwMatrix* childLtm = RwFrameGetLTM(child);
-        if (childLtm) {
-            const RwV3d* childPos = RwMatrixGetPos(childLtm);
-            if (childPos) DrawLine(drawList, from, CVector{childPos->x, childPos->y, childPos->z}, color);
-        }
-        DrawFrameNode(drawList, child, color);
-    }
-}
+// RW 3.4 的动画层级布局，plugin-sdk 未提供这份结构，字段与参考实现一致：
+// +0x4 节点数、+0x8 骨骼矩阵数组（每项 0x40，位置在 +0x30）、+0x10 节点信息（每项 0x10）。
+// 蒙皮 ped 的帧 LTM 不跟随动画，趴着的骨骼就是从帧 LTM 取出来的，必须改走层级矩阵
+struct VcHAnimHierarchy {
+    void* frame;
+    std::uint32_t numNodes;
+    void* matrixPalette;
+    std::uint32_t flags;
+    void* nodeInfo;
+};
 
 void DrawSkeleton(ImDrawList* drawList, CPed* ped, ImU32 color) {
     if (!ped->m_pRwClump) return;
-    RwFrame* root = RpClumpGetFrame(ped->m_pRwClump);
-    if (!root) return;
-    DrawFrameNode(drawList, root, color);
+    // clump 的原子链表，第一个节点按参考实现反解出层级；
+    // 0x7BA084 是 VC 的原子偏移量，这条链路在 1.0 上是验证过的
+    auto* firstNode = *reinterpret_cast<char**>(reinterpret_cast<char*>(ped->m_pRwClump) + 0x8);
+    if (!firstNode) return;
+    const int atomicOffset = *reinterpret_cast<const int*>(0x7BA084);
+    auto* hierarchy = *reinterpret_cast<VcHAnimHierarchy**>(firstNode + 0x40 - atomicOffset);
+
+    // 一次性诊断：链路每一环的实际值，断在哪一眼就能看出来
+    static bool diagnosed = false;
+    if (!diagnosed) {
+        diagnosed = true;
+        char dump[512] = {};
+        std::snprintf(dump, sizeof(dump),
+            "骨骼诊断: clump=%p firstNode=%p atomicOffset=%d hierarchy=%p",
+            reinterpret_cast<const void*>(ped->m_pRwClump),
+            reinterpret_cast<const void*>(firstNode), atomicOffset,
+            reinterpret_cast<const void*>(hierarchy));
+        Log::Warn(dump);
+        if (hierarchy) {
+            std::snprintf(dump, sizeof(dump),
+                "骨骼诊断: numNodes=%u matrixPalette=%p nodeInfo=%p",
+                hierarchy->numNodes,
+                reinterpret_cast<const void*>(hierarchy->matrixPalette),
+                reinterpret_cast<const void*>(hierarchy->nodeInfo));
+            Log::Warn(dump);
+            const RwMatrix* diagPalette = static_cast<const RwMatrix*>(hierarchy->matrixPalette);
+            const std::uint32_t* diagNodes = static_cast<const std::uint32_t*>(hierarchy->nodeInfo);
+            for (std::uint32_t index = 0; index < hierarchy->numNodes && index < 6; ++index) {
+                const RwV3d* position = RwMatrixGetPos(&diagPalette[index]);
+                std::snprintf(dump, sizeof(dump),
+                    "骨骼诊断: 节点 %u nodeID=%u parent=%u pos=(%.1f, %.1f, %.1f)",
+                    index, diagNodes[index * 4 + 0], diagNodes[index * 4 + 3],
+                    position ? position->x : 0.0f, position ? position->y : 0.0f, position ? position->z : 0.0f);
+                Log::Warn(dump);
+            }
+        }
+    }
+
+    if (!hierarchy || !hierarchy->matrixPalette || !hierarchy->nodeInfo || hierarchy->numNodes == 0) return;
+
+    const RwMatrix* palette = static_cast<const RwMatrix*>(hierarchy->matrixPalette);
+    const std::uint32_t* nodes = static_cast<const std::uint32_t*>(hierarchy->nodeInfo);
+    for (std::uint32_t index = 1; index < hierarchy->numNodes; ++index) {
+        // 节点信息每项 0x10：nodeID / flags / frameIndex / parentIndex
+        const std::uint32_t parentIndex = nodes[index * 4 + 3];
+        if (parentIndex >= hierarchy->numNodes || parentIndex == index) continue;
+        const RwV3d* child = RwMatrixGetPos(&palette[index]);
+        const RwV3d* parent = RwMatrixGetPos(&palette[parentIndex]);
+        if (!child || !parent) continue;
+        if (child->x == 0.0f && child->y == 0.0f && child->z == 0.0f) continue;
+        DrawLine(drawList, {child->x, child->y, child->z}, {parent->x, parent->y, parent->z}, color);
+    }
 }
 }
 
