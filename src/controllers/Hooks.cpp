@@ -50,6 +50,7 @@ WNDPROC g_originalWndProc = nullptr;
 EndSceneFn g_originalEndScene = nullptr;
 ResetFn g_originalReset = nullptr;
 bool g_gameInputBlocked = false;
+std::array<bool, 256> g_keysHeldBeforeBlock{};
 IDirect3DDevice9* g_device = nullptr;
 
 // 显示模式表与场景相机地址，取自参考实现 III.VC.SA.WindowedMode
@@ -231,6 +232,23 @@ bool AnyGameKeyDown() {
         if ((GetAsyncKeyState(key) & 0x8000) != 0) return true;
     }
     return false;
+}
+
+// 打开菜单之前就已经按住的键，玩家是在走路或开车时顺手开的菜单，
+// 这类键不算菜单操作，否则关掉菜单后只要还按着移动键就会被一直锁住。
+// 只有菜单打开之后才按下的键才值得等它松开
+bool AnyMenuKeyDown() {
+    for (int key = 0x08; key < 0x100; ++key) {
+        if (g_keysHeldBeforeBlock[key]) continue;
+        if ((GetAsyncKeyState(key) & 0x8000) != 0) return true;
+    }
+    return false;
+}
+
+void RememberKeysHeldBeforeBlock() {
+    for (int key = 0x08; key < 0x100; ++key) {
+        g_keysHeldBeforeBlock[key] = (GetAsyncKeyState(key) & 0x8000) != 0;
+    }
 }
 
 bool WantsInput();
@@ -782,10 +800,15 @@ void MaintainWindowMode() {
 }
 
 void ApplyGameInputBlock(bool blocked, bool allowReleaseGate = true) {
-    if (allowReleaseGate && !blocked && g_gameInputBlocked && AnyGameKeyDown()) {
+    if (allowReleaseGate && !blocked && g_gameInputBlocked && AnyMenuKeyDown()) {
         blocked = true;
     }
     if (g_gameInputBlocked != blocked) {
+        if (blocked) {
+            RememberKeysHeldBeforeBlock();
+        } else {
+            g_keysHeldBeforeBlock.fill(false);
+        }
         g_gameInputBlocked = blocked;
         ClearMouseState();
         if (blocked) {

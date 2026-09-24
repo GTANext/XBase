@@ -140,8 +140,15 @@ void ProcessSolidWater() {
     float waterHeight = 0.0f;
     plugin::Command<plugin::Commands::GET_WATER_HEIGHT_AT_COORDS>(pos.x, pos.y, false, &waterHeight);
 
+    // 只有玩家真的在水里或贴着水面时才把水面变成固体。
+    // 之前只要人在水面之上就生效，于是岸边沙滩这类地形高度贴近水面的地方也会中招，
+    // 脚下凭空多出隐形实体，再叠上下面那次强制抬升，玩家就会被钉在原地走不动
+    const bool atSurface = pos.z <= waterHeight + 0.2f;
+    const bool onPlatform = s_solidWaterObj != 0 && pos.z <= waterHeight + 1.5f;
+
     const int hplayer = CPools::GetPedRef(player);
-    if (!plugin::Command<plugin::Commands::IS_CHAR_IN_ANY_BOAT>(hplayer) && waterHeight != -1000.0f && pos.z > waterHeight) {
+    if (!plugin::Command<plugin::Commands::IS_CHAR_IN_ANY_BOAT>(hplayer) && waterHeight != -1000.0f
+        && (atSurface || onPlatform)) {
         if (s_solidWaterObj == 0) {
             CStreaming::RequestModel(3095, PRIORITY_REQUEST);
             CStreaming::LoadAllRequestedModels(false);
@@ -151,7 +158,8 @@ void ProcessSolidWater() {
                 return;
             }
             plugin::Command<plugin::Commands::SET_OBJECT_VISIBLE>(s_solidWaterObj, false);
-            if (pos.z < waterHeight + 1.0f) {
+            // 从水里把人托上水面，已经站在水面上的不再碰，免得每轮都抬高一次
+            if (pos.z < waterHeight) {
                 player->SetPosn(pos.x, pos.y, waterHeight + 1.0f);
             }
         } else if (!plugin::Command<plugin::Commands::DOES_OBJECT_EXIST>(s_solidWaterObj)) {

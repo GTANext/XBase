@@ -46,9 +46,10 @@ using GetBrowserVersionStringFn = HRESULT(STDAPICALLTYPE*)(
 
 constexpr const wchar_t* kHostWindowClass = L"XBaseWebViewHost";
 
-// 抓帧模式参数，包括空闲与交互时的抓帧间隔、全屏状态检测间隔和交互判定阈值
+// 抓帧模式参数，包括空闲与交互时的抓帧间隔、全屏状态检测间隔和交互判定阈值。
+// 交互期 33 毫秒约等于 30 帧，再往上加帧率编码解码的开销就会吃满一个核
 constexpr unsigned long long kCaptureIdleIntervalMs = 500;
-constexpr unsigned long long kCaptureActiveIntervalMs = 120;
+constexpr unsigned long long kCaptureActiveIntervalMs = 33;
 constexpr unsigned long long kCaptureActiveWindowMs = 1500;
 constexpr unsigned long long kCaptureModeCheckMs = 250;
 constexpr unsigned long long kMoveForwardIntervalMs = 60;
@@ -95,7 +96,9 @@ struct WebViewState {
     float zoom = 1.0f;
     XBase::WebView::StateCallback stateCallback = nullptr;
     XBase::WebView::MessageHandler messageHandler = nullptr;
-    std::vector<std::string> pendingScripts;
+    // 文档级脚本登记一次就要在之后每个新建的控制器上重新注入，
+    // 点叉关闭会销毁控制器再重建，这里不能跟着控制器一起清掉
+    std::vector<std::string> documentScripts;
 
     // 本地页面用虚拟主机映射成 https 源，file 协议下子资源会被当作跨源拦下
     std::vector<std::pair<std::string, std::string>> virtualHosts;
@@ -106,9 +109,11 @@ struct WebViewState {
     bool previewReady = false;
     bool captureMode = false;
     bool menuWasVisible = false;
+    bool captureActive = false;
     IDirect3DTexture9* texture = nullptr;
     int textureWidth = 0;
     int textureHeight = 0;
+    bool textureDynamic = false;
     IStream* captureStream = nullptr;
     bool captureInFlight = false;
 unsigned long long lastCaptureAt = 0;
@@ -408,7 +413,7 @@ void ExecuteScript(const std::string& script) {
     s_state.webview->ExecuteScript(WideFrom(script).c_str(), nullptr);
 }
 
-bool DecodeImageToBgra(const std::vector<unsigned char>& data, unsigned char*& pixels, int& width, int& height) {
+bool DecodeImageToRgba(const std::vector<unsigned char>& data, unsigned char*& pixels, int& width, int& height) {
     if (data.empty() || data.size() > static_cast<std::size_t>(INT_MAX)) return false;
 
     int channels = 0;
@@ -421,12 +426,7 @@ bool DecodeImageToBgra(const std::vector<unsigned char>& data, unsigned char*& p
         return false;
     }
 
-    // 图像库输出 RGBA，D3D9 纹理需要 BGRA，就地交换后直接上传避免额外拷贝
-    const std::size_t pixelCount = static_cast<std::size_t>(width) * height;
-    for (std::size_t index = 0; index < pixelCount; ++index) {
-        std::swap(decoded[index * 4], decoded[index * 4 + 2]);
-        decoded[index * 4 + 3] = 255;
-    }
+    // 图像库输出 RGBA，通道交换放到上传时顺手做，省一次全图遍历
     pixels = decoded;
     return true;
 }
@@ -441,10 +441,19 @@ bool UploadTextureLocked(const unsigned char* pixels, int width, int height) {
             s_state.texture = nullptr;
         }
         IDirect3DTexture9* texture = nullptr;
-        if (FAILED(device->CreateTexture(
+        // 动态纹理配合 DISCARD 整块上传，一次到位；设备不支持再退回托管池
+        if (SUCCEEDED(device->CreateTexture(
                 static_cast<UINT>(width), static_cast<UINT>(height), 1,
-                0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &texture, nullptr)) || !texture) {
-            return false;
+                D3DUSAGE_DYNAMIC, D3DFMT_A8R8G8B8, D3DPOOL_DEFAULT, &texture, nullptr)) && texture) {
+            s_state.textureDynamic = true;
+        } else {
+            texture = nullptr;
+            if (FAILED(device->CreateTexture(
+                    static_cast<UINT>(width), static_cast<UINT>(height), 1,
+                    0, D3DFMT_A8R8G8B8, D3DPOOL_MANAGED, &texture, nullptr)) || !texture) {
+                return false;
+            }
+            s_state.textureDynamic = false;
         }
         s_state.texture = texture;
         s_state.textureWidth = width;
@@ -452,7 +461,7 @@ bool UploadTextureLocked(const unsigned char* pixels, int width, int height) {
     }
 
     D3DLOCKED_RECT locked{};
-    if (FAILED(s_state.texture->LockRect(0, &locked, nullptr, 0))) {
+    if (FAILED(s_state.texture->LockRect(0, &locked, nullptr, s_state.textureDynamic ? D3DLOCK_DISCARD : 0))) {
         s_state.texture->Release();
         s_state.texture = nullptr;
         s_state.textureWidth = 0;
@@ -460,11 +469,18 @@ bool UploadTextureLocked(const unsigned char* pixels, int width, int height) {
         s_state.previewReady = false;
         return false;
     }
+    // 解出来是 RGBA，纹理要 BGRA，逐行边换边拷，读写各过一遍就够
+    const std::size_t sourceStride = static_cast<std::size_t>(width) * 4;
     for (int row = 0; row < height; ++row) {
-        std::memcpy(
-            static_cast<unsigned char*>(locked.pBits) + static_cast<std::size_t>(row) * locked.Pitch,
-            pixels + static_cast<std::size_t>(row) * width * 4,
-            static_cast<std::size_t>(width) * 4);
+        const unsigned char* source = pixels + static_cast<std::size_t>(row) * sourceStride;
+        auto* target = static_cast<unsigned char*>(locked.pBits) + static_cast<std::size_t>(row) * locked.Pitch;
+        for (int column = 0; column < width; ++column) {
+            const std::size_t offset = static_cast<std::size_t>(column) * 4;
+            target[offset + 0] = source[offset + 2];
+            target[offset + 1] = source[offset + 1];
+            target[offset + 2] = source[offset + 0];
+            target[offset + 3] = 255;
+        }
     }
     s_state.texture->UnlockRect(0);
     s_state.previewReady = true;
@@ -527,7 +543,7 @@ public:
             unsigned char* pixels = nullptr;
             int width = 0;
             int height = 0;
-            if (DecodeImageToBgra(data, pixels, width, height)) {
+            if (DecodeImageToRgba(data, pixels, width, height)) {
                 std::lock_guard<std::mutex> lock(s_state.mutex);
                 UploadTextureLocked(pixels, width, height);
                 stbi_image_free(pixels);
@@ -539,15 +555,14 @@ public:
 
 void StartCapture() {
     ICoreWebView2* webview = nullptr;
-    bool recentlyInteracted = false;
+    bool captureActive = false;
     {
         std::lock_guard<std::mutex> lock(s_state.mutex);
         if (s_state.captureInFlight || !s_state.webview || !s_state.visible) return;
         webview = s_state.webview;
         webview->AddRef();
         s_state.captureInFlight = true;
-        const unsigned long long now = static_cast<unsigned long long>(XBase::Platform::MonotonicMilliseconds());
-        recentlyInteracted = now - s_state.lastInteractionAt < kCaptureActiveWindowMs;
+        captureActive = s_state.captureActive;
     }
 
     IStream* stream = nullptr;
@@ -559,10 +574,10 @@ void StartCapture() {
     }
 
     auto* handler = new CaptureCompletedHandler();
-    // 静止时用 PNG 保证清晰度，交互时用 JPEG 压低抓帧开销
+    // 静止时用 PNG 保证清晰度，交互期用 JPEG 压低编码与解码开销
     const COREWEBVIEW2_CAPTURE_PREVIEW_IMAGE_FORMAT format =
-        recentlyInteracted ? COREWEBVIEW2_CAPTURE_PREVIEW_IMAGE_FORMAT_JPEG
-                           : COREWEBVIEW2_CAPTURE_PREVIEW_IMAGE_FORMAT_PNG;
+        captureActive ? COREWEBVIEW2_CAPTURE_PREVIEW_IMAGE_FORMAT_JPEG
+                      : COREWEBVIEW2_CAPTURE_PREVIEW_IMAGE_FORMAT_PNG;
     const HRESULT hr = webview->CapturePreview(format, stream, handler);
     handler->Release();
     webview->Release();
@@ -770,11 +785,11 @@ public:
                     }
                     webMessage->Release();
 
-                    // 页面脚本注入要等控制器就绪，之前排队的脚本在这里补上
-                    for (const std::string& script : s_state.pendingScripts) {
+                    // 页面脚本注入要等控制器就绪，这里把登记过的全部补上，不清空，
+                    // 之后再重建控制器时还要用同一份清单
+                    for (const std::string& script : s_state.documentScripts) {
                         webview->AddScriptToExecuteOnDocumentCreated(WideFrom(script).c_str(), nullptr);
                     }
-                    s_state.pendingScripts.clear();
 
                     ApplyVirtualHostsLocked(webview);
 
@@ -990,6 +1005,7 @@ void ProcessMenuTransition() {
 void ProcessCapture() {
     const unsigned long long now = static_cast<unsigned long long>(Platform::MonotonicMilliseconds());
 
+    const bool menuVisible = XBase::Hooks::IsMenuVisible();
     bool wantCapture = false;
     bool modeChanged = false;
     {
@@ -1003,10 +1019,11 @@ void ProcessCapture() {
             }
         }
         if (s_state.captureMode && s_state.initialized && s_state.visible && !s_state.captureInFlight) {
-            const unsigned long long interval =
-                now - s_state.lastInteractionAt < kCaptureActiveWindowMs
-                    ? kCaptureActiveIntervalMs
-                    : kCaptureIdleIntervalMs;
+            // 菜单开着就按交互期算，否则用户停下来看面板，画面就停在几秒前的样子
+            const bool active = menuVisible
+                || now - s_state.lastInteractionAt < kCaptureActiveWindowMs;
+            s_state.captureActive = active;
+            const unsigned long long interval = active ? kCaptureActiveIntervalMs : kCaptureIdleIntervalMs;
             wantCapture = s_state.lastCaptureAt == 0 || now - s_state.lastCaptureAt >= interval;
         }
         if (modeChanged && s_state.hostWindow && s_state.gameWindow) {
@@ -1332,8 +1349,9 @@ bool PostJson(const std::string& json) {
 bool InjectScript(const std::string& script) {
     if (script.empty()) return false;
     std::lock_guard<std::mutex> lock(s_state.mutex);
+    // 先进持久清单，之后无论控制器重建多少次都会重新注入
+    s_state.documentScripts.push_back(script);
     if (!s_state.webview) {
-        s_state.pendingScripts.push_back(script);
         return true;
     }
     return SUCCEEDED(s_state.webview->AddScriptToExecuteOnDocumentCreated(WideFrom(script).c_str(), nullptr));

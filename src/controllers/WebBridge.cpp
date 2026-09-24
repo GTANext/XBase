@@ -100,7 +100,7 @@ void Reply(const XBase::Json::Value& id, const XBase::Json::Value& result) {
     response.Set("ok", true);
     response.Set("result", result);
     if (!XBase::WebView::PostJson(response.Serialize(false))) {
-        XBase::Log::Warn("WebBridge: ??????????????????");
+        XBase::Log::Warn("WebBridge: 应答回传失败");
     }
 }
 
