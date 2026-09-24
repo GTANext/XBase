@@ -143,6 +143,7 @@ local function add_portable_player_target(name, sdkName, gameName, gameDefine, b
             "src/controllers/Hotkey.cpp",
             "src/controllers/Host.cpp",
             "src/controllers/Platform.cpp",
+            "src/controllers/Package.cpp",
             "src/controllers/Runtime.cpp",
             "src/controllers/RenderFonts.cpp",
             "src/controllers/RenderFonts.h",

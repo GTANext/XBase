@@ -363,6 +363,22 @@ struct Parser {
     }
 };
 
+std::size_t Value::Size() const {
+    if (type == Array) return std::get<std::vector<Value>>(data).size();
+    if (type == Object) return std::get<std::unordered_map<std::string, Value>>(data).size();
+    return 0;
+}
+
+std::vector<std::string> Value::Keys() const {
+    std::vector<std::string> keys;
+    if (type == Object) {
+        for (const auto& entry : std::get<std::unordered_map<std::string, Value>>(data)) {
+            keys.push_back(entry.first);
+        }
+    }
+    return keys;
+}
+
 Value Value::Parse(const std::string& text) {
     Parser parser{text};
     Value value = parser.ParseValue();

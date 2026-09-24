@@ -8,6 +8,7 @@
 #include <XBase/Log.h>
 #include <XBase/Platform.h>
 #include <XBase/UI.h>
+#include <XBase/Version.h>
 
 #include <cstring>
 #include <mutex>
@@ -268,6 +269,14 @@ void DrawText(float x, float y, std::uint32_t color, const char* value) {
     XBase::UI::Canvas::Text(XBase::Vec2{x, y}, UnpackColor(color), value);
 }
 
+int VersionString(char* buffer, std::uint32_t capacity) {
+    return CopyText(XBase::kVersionString, buffer, capacity);
+}
+
+std::uint32_t VersionNumber() {
+    return XBase::kVersionNumber;
+}
+
 XBaseRuntime BuildTable() {
     XBaseRuntime table{};
     table.size = sizeof(XBaseRuntime);
@@ -316,6 +325,8 @@ XBaseRuntime BuildTable() {
     table.drawRect = &DrawRect;
     table.drawRectFilled = &DrawRectFilled;
     table.drawText = &DrawText;
+    table.versionString = &VersionString;
+    table.versionNumber = &VersionNumber;
     return table;
 }
 
@@ -323,7 +334,9 @@ XBaseRuntime BuildTable() {
 
 // 导出属性由 Abi.h 的声明带出，这里不要再写一遍，否则链接规范会冲突
 extern "C" const XBaseRuntime* xbaseGetRuntime(std::uint32_t abiVersion) {
-    if (abiVersion != XBASE_ABI_VERSION) return nullptr;
+    // 字段只追加不改，旧头文件编译的 mod 拿到更长的表照样可用，
+    // 新字段是否存在由调用方拿 size 判断；只拒绝比共享库更新的 ABI
+    if (abiVersion == 0 || abiVersion > XBASE_ABI_VERSION) return nullptr;
     // 表只构建一次，之后所有 mod 拿到的都是同一份
     static const XBaseRuntime table = BuildTable();
     return &table;
