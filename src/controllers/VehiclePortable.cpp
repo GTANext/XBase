@@ -198,10 +198,11 @@ void Process() {
     void* vehicle = Detail::VehicleBackend::GetCurrent();
     ProcessRuntimeOptions(vehicle);
     if (!vehicle) return;
+    // 目标速度是按钮触发的一次性动作，施加一次就清掉。
+    // 持续按住某个速度是锁定开关的职责，混在一起会让没勾锁定的车也被一直强推速度
     if (s_targetSpeed > 0.0f) {
         Detail::VehicleBackend::ApplySpeed(vehicle, s_targetSpeed);
-    } else if (s_speedLock > 0.0f && !s_runtimeOptions.speedLock) {
-        Detail::VehicleBackend::ApplySpeed(vehicle, s_speedLock);
+        s_targetSpeed = 0.0f;
     }
 }
 

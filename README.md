@@ -137,15 +137,15 @@ linkoptions { "/WHOLEARCHIVE:XBaseBootstrap.lib" }
 | World | ◐ | ◐ | ◐ |
 | Visual | ✅ | ◐ | ◐ |
 | Teleport | ✅ | ◐ | ◐ |
-| Scene | ◐ | ✖ | ✖ |
+| Scene | ◐ | ◐ | ◐ |
 | Camera | ✅ | ✖ | ✖ |
 | Cheats | ✅ | ◐ | ◐ |
 | VehicleEffects | ✅ | ✖ | ✖ |
-| BulletAssist | ◐ | ◐ | ✖ |
+| BulletAssist | ◐ | ◐ | ◐ |
 | Hooks | ✅ | ✅ | ✅ |
 | Ui | ✅ | ✅ | ✅ |
 | WebView | ✅ | ✅ | ✅ |
-| Overlay | ◐ | ✖ | ✖ |
+| Overlay | ◐ | ◐ | ◐ |
 
 ### FeatureCapability
 
@@ -206,10 +206,12 @@ linkoptions { "/WHOLEARCHIVE:XBaseBootstrap.lib" }
 
 | Feature | SA | VC | III |
 | --- | :-: | :-: | :-: |
-| BulletAssistTracking / ThroughWalls / HardLock / PedBounds / VehicleBounds | ✅ | ✅ | ✖ |
+| BulletAssistTracking / ThroughWalls / HardLock | ✅ | ✅ | ✖ |
+| BulletAssistPedBounds / VehicleBounds | ✅ | ✅ | ✅ |
 | BulletAssistPedCollision / PedSkeleton / VehicleCollision / FireSuppression | ◐ | ◐ | ✖ |
 
 > 说明：以上矩阵由 `Capabilities.cpp` 静态声明，运行时以实际后端行为为准；`Partial` 表示页面/接口可用，但部分动作受限（如 VC/III 的 `WorldPickups` 走脚本指令路径、`PlayerRuntimeEffects` 仅覆盖部分开关）。
+> `Overlay` 与 `Scene` 在 VC/III 为 `Partial`：覆盖层已改为走 ImGui 画布的三版本共用实现，场景仅任务相关接口可用。III 的 `BulletAssist` 只提供边界框这类只读显示，追踪与开火抑制需要挂钩地址，仍未实现。`VehicleEffects` 是 SA 专属能力，VC 与 III 不提供，这是设计如此而非尚未实现。
 
 ## 当前说明
 

@@ -35,6 +35,10 @@ CapabilitySupport GetCapabilitySupport(Capability capability) {
     case Capability::Teleport:
     case Capability::BulletAssist:
     case Capability::Cheats:
+    // 任务相关的场景接口在这两个版本已有实现，粗粒度要与细粒度的 SceneMission 一致
+    case Capability::Scene:
+    // 覆盖层已改成走 ImGui 画布的实现，三个版本共用同一份代码
+    case Capability::Overlay:
         return CapabilitySupport::Partial;
     case Capability::Hooks:
     case Capability::Ui:
@@ -53,6 +57,12 @@ CapabilitySupport GetCapabilitySupport(Capability capability) {
     case Capability::Visual:
     case Capability::Teleport:
     case Capability::Cheats:
+    // 任务相关的场景接口在这个版本已有实现，粗粒度要与细粒度的 SceneMission 一致
+    case Capability::Scene:
+    // 覆盖层已改成走 ImGui 画布的实现，三个版本共用同一份代码
+    case Capability::Overlay:
+    // 边界框这类只读显示不需要挂钩开火函数，这个版本可用
+    case Capability::BulletAssist:
         return CapabilitySupport::Partial;
     case Capability::Hooks:
     case Capability::Ui:
@@ -253,6 +263,9 @@ CapabilitySupport GetCapabilitySupport(FeatureCapability capability) {
     case FeatureCapability::TeleportBasic:
     case FeatureCapability::VisualHudRadar:
     case FeatureCapability::VisualFilter:
+    // 透视边界框只依赖对象池与世界转屏幕，不需要挂钩
+    case FeatureCapability::BulletAssistPedBounds:
+    case FeatureCapability::BulletAssistVehicleBounds:
         return CapabilitySupport::Supported;
     case FeatureCapability::PlayerRuntimeEffects:
     case FeatureCapability::VehicleBasic:

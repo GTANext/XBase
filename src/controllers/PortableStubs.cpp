@@ -3,7 +3,6 @@
 #include <XBase/BulletAssist.h>
 #include <XBase/Camera.h>
 #include <XBase/Hooks.h>
-#include <XBase/Overlay.h>
 #include <XBase/Ped.h>
 #include <XBase/Theme.h>
 #include <XBase/Types.h>
@@ -31,15 +30,3 @@ void NotifyGameInit() {}
 void Process() {}
 void Shutdown() {}
 }
-
-namespace XBase::Overlay {
-void Init() {}
-void Process() {}
-void Shutdown() {}
-void Draw() {}
-void SetVisible(bool) {}
-bool IsVisible() { return false; }
-void Toggle() {}
-void SetPosition(bool, bool, bool, bool) {}
-}
-

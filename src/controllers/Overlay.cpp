@@ -1,57 +1,80 @@
 #include <XBase/Overlay.h>
+
 #include <XBase/Core.h>
+#include <XBase/Hooks.h>
 #include <XBase/Player.h>
-#include <XBase/Vehicle.h>
+#include <XBase/Teleport.h>
+#include <XBase/UI.h>
+#include <XBase/ValueTypes.h>
 #include <XBase/World.h>
-#include "plugin.h"
-#include "CPlayerPed.h"
-#include "CTimer.h"
-#include "CFont.h"
-#include "CRGBA.h"
-#include "RenderWare.h"
+
 #include <cstdio>
-#include <cstring>
 
 namespace {
 
 bool s_visible = false;
-bool s_topLeft = true, s_topRight = false, s_bottomLeft = false, s_bottomRight = false;
+bool s_topLeft = true;
+bool s_topRight = false;
+bool s_bottomLeft = false;
+bool s_bottomRight = false;
 
-int CountLines(const char* text) {
-    if (!text || !text[0]) return 0;
-    int lines = 1;
-    for (const char* p = text; *p; ++p) {
-        if (*p == '\n') ++lines;
+XBase::Hooks::DrawCallbackId s_drawCallback;
+
+constexpr float kPadding = 12.0f;
+constexpr float kLineHeight = 16.0f;
+constexpr int kMaxLines = 8;
+
+void DrawOverlay() {
+    if (!s_visible || !XBase::Core::IsWorldReady()) {
+        return;
     }
-    return lines;
-}
 
-void DrawBlock(const char* text, float x, float y, CRGBA color, bool rightAligned) {
-    if (!text || !text[0]) return;
-    CFont::SetScale(0.35f, 0.35f);
-    CFont::SetColor(color);
-    CFont::SetFontStyle(FONT_SUBTITLES);
-    CFont::SetProportional(true);
-    CFont::SetJustify(false);
-    CFont::SetBackground(false, false);
-    CFont::SetWrapx(0.0f);
-    CFont::SetCentreSize(0.0f);
+    char lines[kMaxLines][64] = {};
+    int count = 0;
 
-    float lineY = y;
-    const char* p = text;
-    while (*p) {
-        const char* nl = std::strchr(p, '\n');
-        int len = nl ? static_cast<int>(nl - p) : static_cast<int>(std::strlen(p));
-        if (len > 0) {
-            char line[256];
-            std::strncpy(line, p, len);
-            line[len] = '\0';
-            const float lineX = rightAligned ? x - CFont::GetStringWidth(line, true) : x;
-            CFont::PrintString(lineX, lineY, line);
-        }
-        if (!nl) break;
-        p = nl + 1;
-        lineY += 14.0f;
+    std::snprintf(lines[count++], sizeof(lines[0]), "FPS: %.0f", XBase::UI::GetFrameRate());
+
+    const XBase::Vec3 position = XBase::Teleport::GetCurrentPosition();
+    std::snprintf(
+        lines[count++],
+        sizeof(lines[0]),
+        "Pos: %.1f %.1f %.1f",
+        position.x,
+        position.y,
+        position.z);
+
+    std::snprintf(
+        lines[count++],
+        sizeof(lines[0]),
+        "H: %.0f A: %.0f",
+        XBase::Player::GetHealth(),
+        XBase::Player::GetArmour());
+
+    std::snprintf(
+        lines[count++],
+        sizeof(lines[0]),
+        "$%d W: %d",
+        XBase::Player::GetMoney(),
+        XBase::Player::GetWantedLevel());
+
+    int hour = 0;
+    int minute = 0;
+    XBase::World::GetTime(hour, minute);
+    std::snprintf(lines[count++], sizeof(lines[0]), "Time: %02d:%02d", hour, minute);
+
+    const XBase::Vec2 display = XBase::UI::GetDisplaySize();
+    const bool rightAligned = s_topRight || s_bottomRight;
+    const bool bottomAligned = s_bottomLeft || s_bottomRight;
+
+    const float x = rightAligned ? display.x - kPadding : kPadding;
+    const float y = bottomAligned
+        ? display.y - kPadding - static_cast<float>(count) * kLineHeight
+        : kPadding;
+
+    const XBase::Color white{};
+    for (int index = 0; index < count; ++index) {
+        const float lineY = y + static_cast<float>(index) * kLineHeight;
+        XBase::UI::Canvas::Text({x, lineY}, white, lines[index]);
     }
 }
 
@@ -61,12 +84,21 @@ namespace XBase::Overlay {
 
 void Init() {
     s_visible = false;
+    // 三个版本统一走 ImGui 画布，不碰游戏自带的字体系统，
+    // 各版本的字体接口与字符编码差异很大，复用画布可以一份代码覆盖全部版本
+    if (!s_drawCallback) {
+        s_drawCallback = Hooks::RegisterDrawCallback(Draw);
+    }
 }
 
 void Process() {
 }
 
 void Shutdown() {
+    if (s_drawCallback) {
+        Hooks::UnregisterDrawCallback(s_drawCallback);
+        s_drawCallback = {};
+    }
     s_visible = false;
     s_topLeft = true;
     s_topRight = false;
@@ -75,41 +107,7 @@ void Shutdown() {
 }
 
 void Draw() {
-    if (!s_visible || !Core::IsWorldReady()) return;
-
-    CPlayerPed* player = FindPlayerPed();
-    if (!player) return;
-
-    char buf[512];
-    CVector pos = player->GetPosition();
-    int hour, minute;
-    World::GetTime(hour, minute);
-
-    int fps = static_cast<int>(1.0f / CTimer::ms_fTimeStep * 60.0f);
-    float health = Player::GetHealth();
-    float armour = Player::GetArmour();
-    int money = Player::GetMoney();
-    int wanted = Player::GetWantedLevel();
-
-    std::snprintf(buf, sizeof(buf),
-        "FPS: %d\nPos: %.1f %.1f %.1f\nH: %.0f A: %.0f\n$%d W: %d\nTime: %02d:%02d\nInterior: %d",
-        fps, pos.x, pos.y, pos.z, health, armour, money, wanted, hour, minute, player->m_nAreaCode);
-
-    CRGBA white(255, 255, 255, 255);
-
-    constexpr float padding = 10.0f;
-    constexpr float lineHeight = 14.0f;
-    const float screenWidth = static_cast<float>(RsGlobal.maximumWidth);
-    const float screenHeight = static_cast<float>(RsGlobal.maximumHeight);
-
-    const bool rightAligned = s_topRight || s_bottomRight;
-    const bool bottomAligned = s_bottomLeft || s_bottomRight;
-    const float x = rightAligned ? screenWidth - padding : padding;
-    const float y = bottomAligned
-        ? screenHeight - padding - static_cast<float>(CountLines(buf)) * lineHeight
-        : 30.0f;
-
-    DrawBlock(buf, x, y, white, rightAligned);
+    DrawOverlay();
 }
 
 void SetVisible(bool enable) {
