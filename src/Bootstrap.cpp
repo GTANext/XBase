@@ -90,8 +90,8 @@ DetectedGame DetectGame() {
 }
 
 // 载荷目录与文件名优先取宿主 ASI 导出的基名，未导出时按 ASI 文件名推导。
-// XMenu 不导出基名，所以按文件名推导出载荷所在的 XMenu 目录与文件名
-// WebView2 导出基名 WebView2，主 ASI 名字因此不影响载荷命名
+// XMenu 与 WebView2 都导出基名，三个游戏版本因此共用同一个目录与同一份清单，
+// asi 文件名带的 SA / VC / III 后缀不会进到模组名里
 using PayloadBaseNameFn = const char*(*)();
 
 std::string ExportedHostName(HMODULE loaderModule) {
@@ -100,6 +100,26 @@ std::string ExportedHostName(HMODULE loaderModule) {
     if (!exported) return {};
     const char* name = exported();
     return name && name[0] ? std::string(name) : std::string();
+}
+
+bool EndsWithToken(const std::string& value, const char* suffix) {
+    const std::string token(suffix);
+    if (token.empty() || value.size() <= token.size()) return false;
+    return value.compare(value.size() - token.size(), token.size(), token) == 0;
+}
+
+// 载荷文件名是基名 + 游戏后缀，按 asi 文件名推导基名时必须先把后缀剥掉，
+// 否则 XMenuVC.asi 推成 XMenuVC，载荷会去找 XMenuVCVC.dll、数据目录也变成 XMenuVC。
+// 剥完为空说明这个名字本来就只有后缀，保留原样交给后面的兜底处理。
+std::string StripGameSuffix(const std::string& name) {
+    static const char* const suffixes[] = { "III", "SA", "VC" };
+    for (const char* suffix : suffixes) {
+        if (EndsWithToken(name, suffix)) {
+            const std::string stripped = name.substr(0, name.size() - std::string(suffix).size());
+            return stripped.empty() ? name : stripped;
+        }
+    }
+    return name;
 }
 
 std::string HostNameFromModule(HMODULE loaderModule) {
@@ -124,7 +144,8 @@ std::string HostNameFromModule(HMODULE loaderModule) {
     if (dot != std::string::npos) {
         name.resize(dot);
     }
-    return name.empty() ? std::string("XMenu") : name;
+    if (name.empty()) return std::string("XMenu");
+    return StripGameSuffix(name);
 }
 
 std::string PayloadFileName(DetectedGame game, const std::string& hostName) {

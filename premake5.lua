@@ -37,11 +37,21 @@ workspace "XBase"
         "_CRT_NON_CONFORMING_SWPRINTFS",
     }
 
+-- 入口库会被 WHOLEARCHIVE 整包拉进 asi，且有的宿主只链入口库（例如 WebView2 的 loader），
+-- 所以 Bootstrap.cpp 用到的东西必须一起进来：挂载前要读 mod 清单做约束校验，
+-- 清单链路是 Package + Json + Platform，三者都只依赖 Win32 与标准库，不碰 plugin-sdk
+local ENTRY_SUPPORT_SOURCES = {
+    "src/controllers/Package.cpp",
+    "src/controllers/Json.cpp",
+    "src/controllers/Platform.cpp",
+}
+
 local function add_entry_target(name, sources)
     project(name)
         kind "StaticLib"
         targetname(name)
         files(sources)
+        files(ENTRY_SUPPORT_SOURCES)
         -- 入口库要能拿到 XBase/Abi.h 才能把函数表交给适配层
         includedirs { "include" }
 

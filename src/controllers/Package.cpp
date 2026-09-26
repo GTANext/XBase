@@ -304,11 +304,17 @@ bool ParseVersion(const std::string& text, std::uint32_t& number) {
     return ParseVersionNumber(text, number);
 }
 
+// 清单路径自己拼而不走 ModDirectory：后者会顺手建目录，
+// 只查一次清单却建出一个空的模组目录是纯粹的副作用（清单一律只读）
+std::string ManifestPath(const std::string& modName) {
+    return Platform::XBaseDirectory() + "Mods\\" + modName + "\\package.json";
+}
+
 bool Load(const std::string& modName, Info& out) {
     out = Info{};
     out.name = modName;
 
-    const std::string path = Platform::ModDirectory(modName.c_str()) + "package.json";
+    const std::string path = ManifestPath(modName);
     if (!Platform::FileExists(path)) {
         return false;
     }
@@ -395,7 +401,7 @@ bool Validate(const std::string& modName, std::string& failureReason) {
     }
     if (!info.valid) {
         failureReason = "The mod package manifest is malformed.\n\n"
-                        "File:\n" + Platform::ModDirectory(modName.c_str()) + "package.json";
+                        "File:\n" + ManifestPath(modName);
         return false;
     }
 
